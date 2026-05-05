@@ -1,95 +1,140 @@
-import { useState, useCallback, useRef } from 'react'
-import { sendToBackendChat } from './chatbotService'
+import { useState, useCallback, useMemo } from 'react'
+import { streamBackendChat } from './chatbotService'
 import { useSummary } from '@/hooks/useStations'
 import { transformSummary } from '@/utils/transformSummary'
 
-/**
- * Hook untuk mengelola state chatbot.
- * Otomatis inject konteks dashboard (summary) ke setiap request.
- */
 export function useChatbot() {
-  const [messages, setMessages]   = useState([
+  const [messages, setMessages] = useState([
     {
-      id:      'welcome',
-      role:    'assistant',
-      content: 'Halo! Saya asisten monitoring stasiun. Tanya apa saja tentang status jaringan, tipe stasiun, atau cara membaca data. 👋',
-      time:    new Date(),
+      id: 'welcome',
+      role: 'assistant',
+      content:
+        'Halo! Saya AI Analyst monitoring stasiun. Tanya status jaringan, summary, OFF, DELAY, NO DATA, atau detail stasiun. 👋',
+      time: new Date(),
     },
   ])
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError]         = useState(null)
-  const abortRef                  = useRef(null)
 
-  // Ambil konteks dashboard dari summary
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState(null)
+
   const { data: rawSummary } = useSummary()
   const summary = rawSummary ? transformSummary(rawSummary) : {}
-  const dashboardContext = {
-    totalStations: summary.grand_total,
-    onlineCount:   summary.by_status?.ON,
-    offCount:      summary.by_status?.OFF,
-    delayCount:    summary.by_status?.DELAY,
-    noDataCount:   summary.by_status?.['NO DATA'],
-    currentTime:   new Date().toLocaleString('id-ID'),
-  }
 
-  const send = useCallback(async (text) => {
-    if (!text.trim() || isLoading) return
-
-    const userMsg = {
-      id:      `u-${Date.now()}`,
-      role:    'user',
-      content: text.trim(),
-      time:    new Date(),
+  const dashboardContext = useMemo(() => {
+    return {
+      totalStations: summary?.grand_total ?? null,
+      onlineCount: summary?.by_status?.ON ?? null,
+      offCount: summary?.by_status?.OFF ?? null,
+      delayCount: summary?.by_status?.DELAY ?? null,
+      noDataCount: summary?.by_status?.['NO DATA'] ?? null,
+      currentTime: new Date().toLocaleString('id-ID'),
     }
+  }, [summary])
 
-    setMessages((prev) => [...prev, userMsg])
-    setIsLoading(true)
-    setError(null)
+  const send = useCallback(
+    async (text) => {
+      if (!text?.trim() || isLoading) return
 
-    try {
-      // Kirim history (tanpa pesan welcome) ke API
+      const cleanText = text.trim()
+      const now = Date.now()
+      const userId = `u-${now}`
+      const assistantId = `a-${now}`
+
       const history = messages
         .filter((m) => m.id !== 'welcome')
         .map(({ role, content }) => ({ role, content }))
 
-      const response = await sendToBackendChat(text.trim(), history, dashboardContext)
-
-      const assistantMsg = {
-        id:      `a-${Date.now()}`,
-        role:    'assistant',
-        content: response,
-        time:    new Date(),
+      const userMsg = {
+        id: userId,
+        role: 'user',
+        content: cleanText,
+        time: new Date(),
       }
 
-      setMessages((prev) => [...prev, assistantMsg])
-    } catch (err) {
-      setError(err.message ?? 'Gagal mendapatkan respons.')
-      setMessages((prev) => [
-        ...prev,
-        {
-          id:      `err-${Date.now()}`,
-          role:    'assistant',
-          content: '⚠ Gagal mendapatkan respons. Coba lagi.',
-          time:    new Date(),
-          isError: true,
-        },
-      ])
-    } finally {
-      setIsLoading(false)
-    }
-  }, [messages, isLoading, dashboardContext])
+      const assistantMsg = {
+        id: assistantId,
+        role: 'assistant',
+        content: '',
+        time: new Date(),
+      }
+
+      setMessages((prev) => [...prev, userMsg, assistantMsg])
+      setIsLoading(true)
+      setError(null)
+
+      try {
+        await streamBackendChat(
+          cleanText,
+          history,
+          dashboardContext,
+          (chunk) => {
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantId
+                  ? {
+                      ...msg,
+                      content: msg.content + chunk,
+                    }
+                  : msg
+              )
+            )
+          }
+        )
+
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantId && !msg.content.trim()
+              ? {
+                  ...msg,
+                  content: 'Tidak ada respons dari AI Analyst.',
+                }
+              : msg
+          )
+        )
+      } catch (err) {
+        const errorMessage =
+          err?.message || 'Gagal mendapatkan respons dari AI Analyst.'
+
+        setError(errorMessage)
+
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantId
+              ? {
+                  ...msg,
+                  content:
+                    '⚠ Gagal mendapatkan respons. Pastikan FastAPI, OpenClaw, dan plugin monitoring sudah berjalan.',
+                  time: new Date(),
+                  isError: true,
+                }
+              : msg
+          )
+        )
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [messages, isLoading, dashboardContext]
+  )
 
   const clear = useCallback(() => {
     setMessages([
       {
-        id:      'welcome',
-        role:    'assistant',
-        content: 'Percakapan direset. Ada yang ingin ditanyakan? 👋',
-        time:    new Date(),
+        id: 'welcome',
+        role: 'assistant',
+        content:
+          'Percakapan direset. Silakan tanya tentang summary, status OFF, DELAY, NO DATA, atau detail stasiun. 👋',
+        time: new Date(),
       },
     ])
     setError(null)
   }, [])
 
-  return { messages, isLoading, error, send, clear }
+  return {
+    messages,
+    isLoading,
+    error,
+    send,
+    clear,
+  }
 }

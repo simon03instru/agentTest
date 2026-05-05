@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from db.db_connect import get_db
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
+from chatbot.chatbot_route import router as ai_router
 
 from schemas.schemas import (
     RealtimeMapResponse,
@@ -29,6 +30,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+app.include_router(ai_router)
 
 
 @app.get("/")

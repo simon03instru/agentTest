@@ -1,5 +1,14 @@
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict
+from typing import Optional, List, Dict, Any
+
+
+class ChatRequest(BaseModel):
+    message: str
+    history: List[Dict[str, Any]] = []
+    context: Dict[str, Any] = {}
+    systemPrompt: Optional[str] = None
+    session_key: str = "bmkg-ai-analyst"
 
 
 class RealtimeMapResponse(BaseModel):
