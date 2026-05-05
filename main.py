@@ -3,6 +3,7 @@ from db.db_connect import get_db
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 from chatbot.chatbot_route import router as ai_router
+import uvicorn
 
 from schemas.schemas import (
     RealtimeMapResponse,
@@ -24,7 +25,7 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000",
+        "http://localhost:3009",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -104,3 +105,6 @@ def realtime_station_detail(
         raise HTTPException(status_code=404, detail="Station tidak ditemukan")
 
     return row
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8009)

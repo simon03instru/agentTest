@@ -16,15 +16,16 @@ async def stream_openclaw_chat(prompt: str, session_key: str):
 
         connect_frame = {
             "type": "req",
-            "id": str(uuid.uuid4()),
+            "id": "connect-1",
             "method": "connect",
             "params": {
                 "minProtocol": 3,
                 "maxProtocol": 3,
                 "client": {
-                    "id": "bmkg-fastapi-client",
+                    "id": "webchat",
+                    "displayName": "BMKG FastAPI",
                     "version": "1.0.0",
-                    "platform": "server",
+                    "platform": "web",
                     "mode": "webchat"
                 },
                 "role": "operator",
@@ -33,9 +34,6 @@ async def stream_openclaw_chat(prompt: str, session_key: str):
                     "operator.write"
                 ],
                 "caps": [],
-                "auth": {
-                    "token": OPENCLAW_AUTH_TOKEN
-                },
                 "locale": "id-ID",
                 "userAgent": "BMKG-FastAPI/1.0"
             }
