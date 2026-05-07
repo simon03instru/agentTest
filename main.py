@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 from chatbot.chatbot_route import router as ai_router
 import uvicorn
+from datetime import date
 
 from schemas.schemas import (
     RealtimeMapResponse,
@@ -17,6 +18,8 @@ from services.query_logic import (
     get_realtime_off_status,
     get_realtime_summary,
     get_station_realtime_detail,
+    get_data_by_date,
+    get_daily_summary_by_type
 )
 
 app = FastAPI()
@@ -105,6 +108,27 @@ def realtime_station_detail(
         raise HTTPException(status_code=404, detail="Station tidak ditemukan")
 
     return row
+
+
+
+#Data Agent Plan#
+
+
+@app.get("/percentage/{id_station}")
+def data_site_realtime(id_station: str,tanggal: date, db: Session = Depends(get_db)):
+    return get_data_by_date(db, id_station, tanggal)
+
+@app.get("/daily_status/{tipe_station}")
+def daily_status_by_type(tipe_station: str,tanggal: date,db: Session = Depends(get_db)):
+    tipe_station = tipe_station.upper()
+
+    if tipe_station not in ["ARG", "AWS", "AAWS"]:
+        raise HTTPException(
+            status_code=400,
+            detail="tipe_station harus ARG, AWS, atau AAWS"
+        )
+
+    return get_daily_summary_by_type(db, tanggal, tipe_station)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8009)
