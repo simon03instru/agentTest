@@ -11,12 +11,15 @@ OPENCLAW_AUTH_TOKEN = os.getenv("OPENCLAW_AUTH_TOKEN",)
 
 
 async def stream_openclaw_chat(prompt: str, session_key: str):
-    async with websockets.connect(OPENCLAW_WS_URL) as ws:
+    async with websockets.connect(
+            OPENCLAW_WS_URL,
+            origin="http://localhost:3009"
+    ) as ws:
         connect_id = str(uuid.uuid4())
 
         connect_frame = {
             "type": "req",
-            "id": "connect-1",
+            "id": connect_id,
             "method": "connect",
             "params": {
                 "minProtocol": 3,
@@ -39,6 +42,7 @@ async def stream_openclaw_chat(prompt: str, session_key: str):
             }
         }
 
+        print("CONNECT FRAME:", json.dumps(connect_frame, indent=2))
         await ws.send(json.dumps(connect_frame))
 
         while True:
