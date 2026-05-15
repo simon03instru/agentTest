@@ -1,85 +1,94 @@
-const CHAT_STREAM_API_URL =
+const CHAT_API_URL =
   import.meta.env.VITE_API_BASE_URL
-    ? `${import.meta.env.VITE_API_BASE_URL}/ai/chat/stream`
+    ? `${import.meta.env.VITE_API_BASE_URL}/chat/query`
     : null
 
-export async function streamBackendChat(message, history = [], context = {}, onChunk) {
-  if (!CHAT_STREAM_API_URL) {
+/**
+ * Kirim pesan chatbot ke backend LangChain FastAPI
+ *
+ * @param {string} message
+ * @param {Array} history
+ * @param {Object} context
+ * @returns {Promise<string>}
+ */
+export async function sendBackendChat(
+  message,
+  history = [],
+  context = {}
+) {
+  if (!CHAT_API_URL) {
     throw new Error('VITE_API_BASE_URL belum diset.')
   }
 
-  const systemPrompt = buildSystemPrompt(context)
+  if (!message?.trim()) {
+    throw new Error('Pesan kosong.')
+  }
 
-  const response = await fetch(CHAT_STREAM_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
+  const payload = {
+    message: message.trim(),
+
+    history: Array.isArray(history)
+      ? history.map((item) => ({
+          role: item.role,
+          content: item.content,
+        }))
+      : [],
+
+    context: {
+      totalStations: context?.totalStations ?? null,
+      onlineCount: context?.onlineCount ?? null,
+      offCount: context?.offCount ?? null,
+      delayCount: context?.delayCount ?? null,
+      noDataCount: context?.noDataCount ?? null,
+      currentTime:
+        context?.currentTime ||
+        new Date().toLocaleString('id-ID'),
     },
-    body: JSON.stringify({
-      message,
-      history,
-      context,
-      systemPrompt,
-      session_key: 'bmkg-ai-analyst',
-    }),
-  })
+
+    session_id: 'bmkg-ai-analyst',
+  }
+
+  let response
+
+  try {
+    response = await fetch(CHAT_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    })
+  } catch (networkError) {
+    throw new Error(
+      'Tidak dapat terhubung ke server chatbot.'
+    )
+  }
 
   if (!response.ok) {
-    const errText = await response.text()
-    throw new Error(`Chat API error ${response.status}: ${errText}`)
-  }
+    let errorText = ''
 
-  if (!response.body) {
-    throw new Error('Browser tidak mendukung streaming response.')
-  }
-
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder('utf-8')
-
-  while (true) {
-    const { value, done } = await reader.read()
-    if (done) break
-
-    const chunk = decoder.decode(value, { stream: true })
-
-    if (chunk && typeof onChunk === 'function') {
-      onChunk(chunk)
+    try {
+      errorText = await response.text()
+    } catch {
+      errorText = 'Unknown backend error'
     }
+
+    throw new Error(
+      `Chat API error ${response.status}: ${errorText}`
+    )
   }
-}
 
-function buildSystemPrompt(context) {
-  const {
-    totalStations = '?',
-    onlineCount = '?',
-    offCount = '?',
-    delayCount = '?',
-    noDataCount = '?',
-    currentTime = new Date().toLocaleString('id-ID'),
-  } = context || {}
+  let data
 
-  return `Kamu adalah AI Analyst monitoring stasiun BMKG.
+  try {
+    data = await response.json()
+  } catch {
+    throw new Error('Response chatbot tidak valid.')
+  }
 
-KONTEKS DASHBOARD FRONTEND (${currentTime}):
-- Total stasiun: ${totalStations ?? '?'}
-- ON: ${onlineCount ?? '?'}
-- OFF: ${offCount ?? '?'}
-- DELAY: ${delayCount ?? '?'}
-- NO DATA: ${noDataCount ?? '?'}
+  if (!data?.answer) {
+    throw new Error('Jawaban chatbot kosong.')
+  }
 
-INFRASTRUKTUR:
-- User bertanya dari React Chat UI.
-- React mengirim pesan ke FastAPI.
-- FastAPI meneruskan pesan ke OpenClaw.
-- OpenClaw memakai plugin TypeScript monitoring jika pertanyaan terkait data.
-- Plugin memanggil API backend existing seperti summary, status, off, latest.
-- Jawaban harus berdasarkan JSON dari tool/plugin.
-
-ATURAN JAWABAN:
-1. Jawab dalam Bahasa Indonesia.
-2. Jika user bertanya tentang monitoring, status stasiun, ARG, AWS, AAWS, ON, OFF, DELAY, NO DATA, summary, atau latest, gunakan plugin/tools monitoring.
-3. Jangan mengarang angka.
-4. Jika data tidak tersedia, katakan data tidak tersedia.
-5. Jawab ringkas, jelas, dan operasional.
-6. Untuk daftar stasiun, tampilkan maksimal 10 item kecuali user meminta lebih.`
+  return data.answer
 }

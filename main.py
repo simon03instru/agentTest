@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from chatbot.chatbot_route import router as ai_router
 import uvicorn
 from datetime import date
+from login_routes import auth_routes, user_routes
 
 from schemas.schemas import (
     RealtimeMapResponse,
@@ -37,6 +38,8 @@ app.add_middleware(
 
 
 app.include_router(ai_router)
+app.include_router(auth_routes.router)
+app.include_router(user_routes.router)
 
 
 @app.get("/")

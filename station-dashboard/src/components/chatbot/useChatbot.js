@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react'
-import { streamBackendChat } from './chatbotService'
+import { sendBackendChat } from './chatbotService'
 import { useSummary } from '@/hooks/useStations'
 import { transformSummary } from '@/utils/transformSummary'
 
@@ -63,30 +63,19 @@ export function useChatbot() {
       setError(null)
 
       try {
-        await streamBackendChat(
+        const answer = await sendBackendChat(
           cleanText,
           history,
-          dashboardContext,
-          (chunk) => {
-            setMessages((prev) =>
-              prev.map((msg) =>
-                msg.id === assistantId
-                  ? {
-                      ...msg,
-                      content: msg.content + chunk,
-                    }
-                  : msg
-              )
-            )
-          }
+          dashboardContext
         )
 
         setMessages((prev) =>
           prev.map((msg) =>
-            msg.id === assistantId && !msg.content.trim()
+            msg.id === assistantId
               ? {
                   ...msg,
-                  content: 'Tidak ada respons dari AI Analyst.',
+                  content: answer || 'Tidak ada respons dari AI Analyst.',
+                  time: new Date(),
                 }
               : msg
           )
@@ -103,7 +92,7 @@ export function useChatbot() {
               ? {
                   ...msg,
                   content:
-                    '⚠ Gagal mendapatkan respons. Pastikan FastAPI, OpenClaw, dan plugin monitoring sudah berjalan.',
+                    '⚠ Gagal mendapatkan respons. Pastikan FastAPI dan service LangChain chatbot sudah berjalan.',
                   time: new Date(),
                   isError: true,
                 }
