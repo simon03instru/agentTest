@@ -52,7 +52,7 @@ export const resetPassword = (payload) =>
  * GET /users — daftar semua user
  */
 export const getUsers = () =>
-  apiClient.get('/users')
+  apiClient.get('/users/')
 
 /**
  * PATCH /users/:id/role
