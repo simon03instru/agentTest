@@ -3,7 +3,7 @@ import { sendBackendChat } from './chatbotService'
 import { useSummary } from '@/hooks/useStations'
 import { transformSummary } from '@/utils/transformSummary'
 
-export function useChatbot() {
+export function useChatbot(selectedProvider = 'gemini') {
   const [messages, setMessages] = useState([
     {
       id: 'welcome',
@@ -66,7 +66,8 @@ export function useChatbot() {
         const answer = await sendBackendChat(
           cleanText,
           history,
-          dashboardContext
+          dashboardContext,
+          selectedProvider
         )
 
         setMessages((prev) =>
@@ -103,7 +104,7 @@ export function useChatbot() {
         setIsLoading(false)
       }
     },
-    [messages, isLoading, dashboardContext]
+    [messages, isLoading, dashboardContext, selectedProvider]
   )
 
   const clear = useCallback(() => {

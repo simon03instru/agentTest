@@ -7,48 +7,124 @@ import clsx from 'clsx'
  * Semua field observasi yang mungkin muncul di response /station/:id
  * Dikelompokkan agar UI lebih rapi.
  */
-const OBS_GROUPS = [
-  {
-    label: 'Hujan & Tekanan',
-    fields: [
-      { key: 'rr',     label: 'Curah Hujan',   unit: 'mm' },
-      { key: 'pp_air', label: 'Tekanan Udara',  unit: 'hPa' },
-    ],
-  },
-  {
-    label: 'Suhu Udara',
-    fields: [
-      { key: 'tt_air_avg', label: 'Suhu Rata-Rata', unit: '°C' },
-      { key: 'tt_air_min', label: 'Suhu Minimum',   unit: '°C' },
-      { key: 'tt_air_max', label: 'Suhu Maximum',   unit: '°C' },
-    ],
-  },
-  {
-    label: 'Kelembaban & Radiasi',
-    fields: [
-      { key: 'rh_avg', label: 'Kelembaban Rata', unit: '%'     },
-      { key: 'sr_avg', label: 'Radiasi Rata',    unit: 'W/m²'  },
-      { key: 'sr_max', label: 'Radiasi Max',     unit: 'W/m²'  },
-    ],
-  },
-  {
-    label: 'Angin',
-    fields: [
-      { key: 'wd_avg',  label: 'Arah Angin',         unit: '°'   },
-      { key: 'ws_avg',  label: 'Kecepatan Rata',      unit: 'm/s' },
-      { key: 'ws_max',  label: 'Kecepatan Max',       unit: 'm/s' },
-      { key: 'ws_2m',   label: 'Kec. Angin 2m',       unit: 'm/s' },
-      { key: 'ws_50cm', label: 'Kec. Angin 50cm',     unit: 'm/s' },
-    ],
-  },
-  {
-    label: 'Penguapan & Pan',
-    fields: [
-      { key: 'wl_pan', label: 'Water Level Pan', unit: 'mm' },
-      { key: 'ev_pan', label: 'Evaporasi Pan',   unit: 'mm' },
-    ],
-  },
-]
+const OBS_GROUPS= {
+  arg: [
+    {
+      label: 'Hujan',
+      fields: [
+        { key: 'rr', label: 'Curah Hujan', unit: 'mm' },
+      ],
+    },
+  ],
+
+  aws: [
+    {
+      label: 'Hujan',
+      fields: [
+        { key: 'rr', label: 'Curah Hujan', unit: 'mm' },
+      ],
+    },
+
+    {
+      label: 'Atmosfer',
+      fields: [
+        { key: 'pp_air', label: 'Tekanan', unit: 'hPa' },
+      ],
+    },
+
+    {
+      label: 'Kelembaban',
+      fields: [
+        { key: 'rh_avg', label: 'RH', unit: '%' },
+      ],
+    },
+
+    {
+      label: 'Solar Radiation',
+      fields: [
+        { key: 'sr_avg', label: 'Radiasi Avg', unit: 'W/m²' },
+        { key: 'sr_max', label: 'Radiasi Max', unit: 'W/m²' },
+      ],
+    },
+
+    {
+      label: 'Angin',
+      fields: [
+        { key: 'wd_avg', label: 'Wind Direction Avg', unit: '°' },
+        { key: 'ws_avg', label: 'Wind Speed Avg', unit: 'm/s' },
+        { key: 'ws_max', label: 'Wind Speed Max', unit: 'm/s' },
+      ],
+    },
+
+    {
+      label: 'Suhu Udara',
+      fields: [
+        { key: 'tt_air_avg', label: 'Suhu Rata-Rata', unit: '°C' },
+        { key: 'tt_air_min', label: 'Suhu Minimum', unit: '°C' },
+        { key: 'tt_air_max', label: 'Suhu Maximum', unit: '°C' },
+      ],
+    },
+
+  ],
+
+  aaws: [
+    {
+      label: 'Hujan',
+      fields: [
+        { key: 'rr', label: 'Curah Hujan', unit: 'mm' },
+      ],
+    },
+
+    {
+      label: 'Atmosfer',
+      fields: [
+        { key: 'pp_air', label: 'Tekanan', unit: 'hPa' },
+      ],
+    },
+
+    {
+      label: 'Kelembaban',
+      fields: [
+        { key: 'rh_avg', label: 'RH', unit: '%' },
+      ],
+    },
+
+    {
+      label: 'Solar Radiation',
+      fields: [
+        { key: 'sr_avg', label: 'Radiasi Avg', unit: 'W/m²' },
+        { key: 'sr_max', label: 'Radiasi Max', unit: 'W/m²' },
+      ],
+    },
+
+    {
+      label: 'Angin',
+      fields: [
+        { key: 'wd_avg', label: 'Wind Direction Avg', unit: '°' },
+        { key: 'ws_avg', label: 'Wind Speed Avg', unit: 'm/s' },
+        { key: 'ws_max', label: 'Wind Speed Max', unit: 'm/s' },
+      ],
+    },
+
+    {
+      label: 'Suhu Udara',
+      fields: [
+        { key: 'tt_air_avg', label: 'Suhu Rata-Rata', unit: '°C' },
+        { key: 'tt_air_min', label: 'Suhu Minimum', unit: '°C' },
+        { key: 'tt_air_max', label: 'Suhu Maximum', unit: '°C' },
+      ],
+    },
+
+    {
+      label: 'Wind Speed 50cm & 2m',
+      fields: [
+        { key: 'ws_50cm', label: 'Wind Speed 50cm', unit: 'm/s' },
+        { key: 'ws_2m', label: 'Wind Speed 2m', unit: 'm/s' },
+      ],
+    },
+
+  ],
+}
 
 function DetailRow({ label, value, mono = true }) {
   return (
@@ -243,9 +319,9 @@ export default function StationDetailPage() {
           <div>
             <div className="section-title mb-3">Data Observasi Terakhir</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {OBS_GROUPS.map((group) => (
-                <ObsGroup key={group.label} group={group} data={data} />
-              ))}
+              {(OBS_GROUPS[data.tipe_station] ?? []).map((group) => (
+              <ObsGroup key={group.label} group={group} data={data} />
+            ))}
             </div>
           </div>
 

@@ -14,8 +14,7 @@ from auth.auth_utils import (
 )
 
 FRONTEND_RESET_URL = os.getenv(
-    "FRONTEND_RESET_URL",
-    "http://localhost:5173/reset-password"
+    "FRONTEND_RESET_URL"
 )
 
 

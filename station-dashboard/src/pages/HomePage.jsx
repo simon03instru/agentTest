@@ -7,17 +7,6 @@ export default function HomePage() {
   return (
     <div className="flex flex-col gap-4 p-4 lg:p-6 max-w-[1800px] mx-auto animate-fade-in">
 
-      {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-2xl font-bold text-white tracking-wide">
-            Dashboard Monitoring
-          </h1>
-
-        </div>
-        <RefreshIndicator />
-      </div>
-
       {/* KPI Summary Cards */}
       <SummaryCards />
 

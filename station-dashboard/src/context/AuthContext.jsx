@@ -25,7 +25,10 @@ export function AuthProvider({ children }) {
       return
     }
     getMe()
-      .then((data) => setUser(data))
+      .then((data) => {
+        localStorage.setItem('user', JSON.stringify(data))
+        setUser(data)
+      })
       .catch(() => {
         // Token tidak valid / expired
         localStorage.removeItem(TOKEN_KEY)
@@ -46,6 +49,7 @@ export function AuthProvider({ children }) {
     setToken(jwt)
     // Ambil data user lengkap
     const me = await getMe()
+    localStorage.setItem('user', JSON.stringify(me))
     setUser(me)
     return me
   }, [])
@@ -54,10 +58,11 @@ export function AuthProvider({ children }) {
    * Logout: bersihkan token dan user dari state & storage
    */
   const logout = useCallback(() => {
-    localStorage.removeItem(TOKEN_KEY)
-    setToken(null)
-    setUser(null)
-  }, [])
+  localStorage.removeItem(TOKEN_KEY)
+  localStorage.removeItem('user')
+  setToken(null)
+  setUser(null)
+}, [])
 
   /**
    * Cek apakah user punya role yang diizinkan

@@ -1,6 +1,6 @@
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict
-from typing import Optional, List, Dict, Any
+from pydantic import BaseModel, ConfigDict, Field, RootModel
+from typing import Optional, List, Dict, Any, Literal, Union, Annotated
 
 
 class ChatRequest(BaseModel):
@@ -58,6 +58,92 @@ class RealtimeStationResponse(BaseModel):
     ws_2m: float | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class argresponse(BaseModel):
+    id_station: str
+    tipe_station: Literal["arg"] = "arg"
+    name_station: str
+    nama_kota: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    elevasi: float | None = None
+
+    last_observed_at: datetime | None = None
+    last_ingested_at: datetime | None = None
+    status_realtime: str
+    interval_detected: str | None = None
+
+    rr: float | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class awsresponse(BaseModel):
+    id_station: str
+    tipe_station: Literal["aws"] = "aws"
+    name_station: str
+    nama_kota: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    elevasi: float | None = None
+
+    last_observed_at: datetime | None = None
+    last_ingested_at: datetime | None = None
+    status_realtime: str
+    interval_detected: str | None = None
+
+    rr: float | None = None
+    pp_air: float | None = None
+    rh_avg: float | None = None
+    sr_avg: float | None = None
+    sr_max: float | None = None
+    wd_avg: float | None = None
+    ws_avg: float | None = None
+    ws_max: float | None = None
+    tt_air_avg: float | None = None
+    tt_air_min: float | None = None
+    tt_air_max: float | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class aawsresponse(BaseModel):
+    id_station: str
+    tipe_station: Literal["aaws"] = "aaws"
+    name_station: str
+    nama_kota: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    elevasi: float | None = None
+
+    last_observed_at: datetime | None = None
+    last_ingested_at: datetime | None = None
+    status_realtime: str
+    interval_detected: str | None = None
+
+    rr: float | None = None
+    pp_air: float | None = None
+    rh_avg: float | None = None
+    sr_avg: float | None = None
+    sr_max: float | None = None
+    wd_avg: float | None = None
+    ws_avg: float | None = None
+    ws_max: float | None = None
+    tt_air_avg: float | None = None
+    tt_air_min: float | None = None
+    tt_air_max: float | None = None
+
+    ws_50cm: float | None = None
+    ws_2m: float | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+StationResponse = Annotated[
+    Union[argresponse, awsresponse, aawsresponse],
+    Field(discriminator="tipe_station")
+]
 
 
 class RealtimeSummaryItem(BaseModel):

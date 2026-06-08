@@ -36,7 +36,7 @@ function normalizeOffStation(s) {
   }
 }
 
-const FILTERS = ['ALL', 'OFF', 'DELAY', 'NO DATA']
+const FILTERS = ['ALL', 'OFF', 'DELAY']
 const PAGE_SIZE = 10
 
 function SkeletonRow() {

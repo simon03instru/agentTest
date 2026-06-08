@@ -20,11 +20,7 @@ const STATUS_CONFIG = [
     color: 'text-status-delay', bg: 'bg-status-delay/10',
     border: 'border-status-delay/20', dot: 'bg-status-delay',
   },
-  {
-    key: 'NO DATA', label: 'No Data',
-    color: 'text-status-nodata', bg: 'bg-status-nodata/10',
-    border: 'border-status-nodata/20', dot: 'bg-status-nodata',
-  },
+
 ]
 
 // Urutan tipe yang ingin ditampilkan
@@ -131,8 +127,8 @@ export default function SummaryCards() {
   if (isLoading) {
     return (
       <div className="space-y-3">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+          {Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>
         <div className="glass-card p-4 skeleton h-28" />
       </div>

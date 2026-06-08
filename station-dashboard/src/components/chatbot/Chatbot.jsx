@@ -114,7 +114,14 @@ const SUGGESTIONS = [
 export default function Chatbot() {
   const [isOpen, setIsOpen]       = useState(false)
   const [input, setInput]         = useState('')
-  const { messages, isLoading, send, clear } = useChatbot()
+  const [selectedProvider, setSelectedProvider] = useState('gemini')
+  const { messages, isLoading, send, clear } = useChatbot(selectedProvider)
+  const user = JSON.parse(localStorage.getItem('user'))
+  const canAccessChat =
+    user?.role === 'admin' ||
+    user?.role === 'superadmin'
+
+  if (!canAccessChat) return null
   const bottomRef                 = useRef(null)
   const inputRef                  = useRef(null)
 
@@ -168,11 +175,25 @@ export default function Chatbot() {
                 <circle cx="6.5" cy="6.5" r="5.5" stroke="#00d4ff" strokeWidth="0.8" opacity="0.3"/>
               </svg>
             </div>
-            <div>
-              <div className="font-display text-xs font-semibold text-white">Station Assistant</div>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <div className="font-display text-xs font-semibold text-white">
+                  Station Assistant
+                </div>
+
+                <select
+                  value={selectedProvider}
+                  onChange={(e) => setSelectedProvider(e.target.value)}
+                  className="bg-surface-2 border border-white/10 text-[10px] text-slate-300 rounded-md px-1.5 py-0.5 outline-none focus:border-accent/40"
+                >
+                  <option value="gemini">Gemini</option>
+                  <option value="openai">OpenAI</option>
+                </select>
+              </div>
+
               <div className="font-mono text-[9px] text-slate-500 flex items-center gap-1">
                 <div className="w-1 h-1 rounded-full bg-status-on animate-pulse-slow" />
-                {import.meta.env.VITE_OPENCLAW_URL ? 'OpenClaw terhubung' : 'Mode demo'}
+                {selectedProvider.toUpperCase()} aktif
               </div>
             </div>
           </div>

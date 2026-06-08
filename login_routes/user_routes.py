@@ -18,7 +18,7 @@ def get_users(
 
 
 @router.patch("/{user_id}/role")
-def update_role(
+def update_user_role(
     user_id: int,
     payload: UpdateRoleRequest,
     db: Session = Depends(get_db),
@@ -27,25 +27,40 @@ def update_role(
     allowed_roles = ["user", "admin", "superadmin"]
 
     if payload.role not in allowed_roles:
-        raise HTTPException(status_code=400, detail="Role tidak valid")
+        raise HTTPException(
+            status_code=400,
+            detail="Role tidak valid"
+        )
 
     user = db.query(User).filter(User.id == user_id).first()
 
     if not user:
-        raise HTTPException(status_code=404, detail="User tidak ditemukan")
+        raise HTTPException(
+            status_code=404,
+            detail="User tidak ditemukan"
+        )
+
+    # mencegah superadmin mengubah role dirinya sendiri tanpa sengaja
+    if user.id == current_user.id:
+        raise HTTPException(
+            status_code=400,
+            detail="Tidak boleh mengubah role akun sendiri"
+        )
 
     user.role = payload.role
     db.commit()
+    db.refresh(user)
 
     return {
-        "message": "Role berhasil diubah",
+        "message": "Role user berhasil diubah",
         "user_id": user.id,
-        "new_role": user.role,
+        "username": user.username,
+        "new_role": user.role
     }
 
 
 @router.patch("/{user_id}/active")
-def update_active_status(
+def update_user_active(
     user_id: int,
     payload: UpdateActiveRequest,
     db: Session = Depends(get_db),
@@ -54,19 +69,30 @@ def update_active_status(
     user = db.query(User).filter(User.id == user_id).first()
 
     if not user:
-        raise HTTPException(status_code=404, detail="User tidak ditemukan")
+        raise HTTPException(
+            status_code=404,
+            detail="User tidak ditemukan"
+        )
+
+    if user.id == current_user.id:
+        raise HTTPException(
+            status_code=400,
+            detail="Tidak boleh menonaktifkan akun sendiri"
+        )
 
     if user.role == "superadmin" and current_user.role != "superadmin":
         raise HTTPException(
             status_code=403,
-            detail="Admin tidak boleh menonaktifkan superadmin",
+            detail="Admin tidak boleh mengubah status superadmin"
         )
 
     user.is_active = payload.is_active
     db.commit()
+    db.refresh(user)
 
     return {
         "message": "Status user berhasil diubah",
         "user_id": user.id,
-        "is_active": user.is_active,
+        "username": user.username,
+        "is_active": user.is_active
     }

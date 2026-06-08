@@ -1,10 +1,11 @@
 from langchain_core.tools import tool
-
+from datetime import date
 from db.db_connect import sessionlocal
 from services.query_logic import (
     get_realtime_summary,
     get_realtime_off_status,
     get_station_realtime_detail,
+    get_data_by_date,
 )
 
 
@@ -63,4 +64,29 @@ def tool_get_station_detail(id_station: str) -> str:
         return str(data)
     finally:
         db.close()
+
+
+@tool
+def tool_get_percentage_id_station(id_station: str, tanggal: date) -> str:
+    """Ambil detail data persentase alat berdasarkan tanggal"""
+    db = sessionlocal()
+    try:
+        row = get_data_by_date(db, id_station, tanggal)
+
+        if not row:
+            return "Coba Lagi"
+
+        if isinstance(row, dict):
+            data = row
+        else:
+            data = dict(row._mapping) if hasattr(row, "_mapping") else row.__dict__
+
+        return str(data)
+    finally:
+        db.close()
+
+
+
+
+
 

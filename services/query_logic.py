@@ -14,7 +14,7 @@ def get_realtime_map_status(
     status_realtime: str | None = None,
 ):
     status_expr = case(
-        (StationLatest.id_station.is_(None), "NO DATA"),
+        (StationLatest.id_station.is_(None), "OFF"),
         else_=StationLatest.status_realtime,
     )
 
@@ -39,7 +39,7 @@ def get_realtime_map_status(
         query = query.filter(Station.tipe_station == tipe_station)
 
     if status_realtime:
-        if status_realtime.upper() == "NO DATA":
+        if status_realtime.upper() == "OFF":
             query = query.filter(StationLatest.id_station.is_(None))
         else:
             query = query.filter(StationLatest.status_realtime == status_realtime.upper())
@@ -97,7 +97,7 @@ def get_all_realtime_status(
 
 def get_realtime_off_status(db: Session, tipe_station: str | None = None):
     status_expr = case(
-        (StationLatest.id_station.is_(None), "NO DATA"),
+        (StationLatest.id_station.is_(None), "OFF"),
         else_=StationLatest.status_realtime,
     )
 
@@ -134,7 +134,7 @@ def get_realtime_off_status(db: Session, tipe_station: str | None = None):
         .filter(
             or_(
                 StationLatest.id_station.is_(None),  # belum ada row latest
-                StationLatest.status_realtime.in_(["OFF", "NO DATA", "DELAY"]),
+                StationLatest.status_realtime.in_(["OFF", "DELAY"]),
             )
         )
     )
@@ -145,24 +145,9 @@ def get_realtime_off_status(db: Session, tipe_station: str | None = None):
     return query.order_by(Station.tipe_station, Station.name_station).all()
 
 
-# def get_realtime_summary(db: Session):
-#     rows = (
-#         db.query(
-#             Station.tipe_station,
-#             StationLatest.status_realtime,
-#             func.count(Station.id_station).label("total"),
-#         )
-#         .join(StationLatest, Station.id_station == StationLatest.id_station)
-#         .group_by(Station.tipe_station, StationLatest.status_realtime)
-#         .order_by(Station.tipe_station, StationLatest.status_realtime)
-#         .all()
-#     )
-#
-#     return rows
-
 def get_realtime_summary(db: Session):
     status_expr = case(
-        (StationLatest.id_station.is_(None), "NO DATA"),
+        (StationLatest.id_station.is_(None), "OFF"),
         else_=StationLatest.status_realtime,
     )
 
@@ -182,45 +167,260 @@ def get_realtime_summary(db: Session):
 
 
 def get_station_realtime_detail(db: Session, id_station: str):
-    row = (
-        db.query(
-            Station.id_station,
-            Station.tipe_station,
-            Station.name_station,
-            Station.nama_kota,
-            Station.latitude,
-            Station.longitude,
-            Station.elevasi,
-            StationLatest.last_observed_at,
-            StationLatest.last_ingested_at,
-            StationLatest.status_realtime,
-            StationLatest.interval_detected,
-            StationLatest.rr,
-            StationLatest.pp_air,
-            StationLatest.rh_avg,
-            StationLatest.sr_avg,
-            StationLatest.sr_max,
-            StationLatest.wd_avg,
-            StationLatest.ws_avg,
-            StationLatest.ws_max,
-            StationLatest.tt_air_avg,
-            StationLatest.tt_air_min,
-            StationLatest.tt_air_max,
-            StationLatest.ws_50cm,
-            StationLatest.wl_pan,
-            StationLatest.ev_pan,
-            StationLatest.ws_2m,
+    data_real = (db.query(Station.id_station, Station.tipe_station).filter(Station.id_station == id_station)).first()
+    type = data_real.tipe_station
+    if type == "arg":
+        data_row_arg = (
+            db.query(
+                Station.id_station,
+                Station.tipe_station,
+                Station.name_station,
+                Station.nama_kota,
+                Station.latitude,
+                Station.longitude,
+                Station.elevasi,
+                StationLatest.last_observed_at,
+                StationLatest.last_ingested_at,
+                StationLatest.status_realtime,
+                StationLatest.interval_detected,
+                StationLatest.rr,
+            )
+            .join(StationLatest, Station.id_station == StationLatest.id_station)
+            .filter(Station.id_station == id_station)
+            .first()
         )
-        .join(StationLatest, Station.id_station == StationLatest.id_station)
-        .filter(Station.id_station == id_station)
-        .first()
-    )
+        return data_row_arg
 
-    return row
+    elif type == "aws":
+        data_row_aws = (
+            db.query(
+                Station.id_station,
+                Station.tipe_station,
+                Station.name_station,
+                Station.nama_kota,
+                Station.latitude,
+                Station.longitude,
+                Station.elevasi,
+                StationLatest.last_observed_at,
+                StationLatest.last_ingested_at,
+                StationLatest.status_realtime,
+                StationLatest.interval_detected,
+                StationLatest.rr,
+                StationLatest.pp_air,
+                StationLatest.rh_avg,
+                StationLatest.sr_avg,
+                StationLatest.sr_max,
+                StationLatest.wd_avg,
+                StationLatest.ws_avg,
+                StationLatest.ws_max,
+                StationLatest.tt_air_avg,
+                StationLatest.tt_air_min,
+                StationLatest.tt_air_max,
+            )
+            .join(StationLatest, Station.id_station == StationLatest.id_station)
+            .filter(Station.id_station == id_station)
+            .first()
+        )
+        return data_row_aws
+
+    elif type == "aaws":
+        data_row_aaws = (
+            db.query(
+                Station.id_station,
+                Station.tipe_station,
+                Station.name_station,
+                Station.nama_kota,
+                Station.latitude,
+                Station.longitude,
+                Station.elevasi,
+                StationLatest.last_observed_at,
+                StationLatest.last_ingested_at,
+                StationLatest.status_realtime,
+                StationLatest.interval_detected,
+                StationLatest.rr,
+                StationLatest.pp_air,
+                StationLatest.rh_avg,
+                StationLatest.sr_avg,
+                StationLatest.sr_max,
+                StationLatest.wd_avg,
+                StationLatest.ws_avg,
+                StationLatest.ws_max,
+                StationLatest.tt_air_avg,
+                StationLatest.tt_air_min,
+                StationLatest.tt_air_max,
+                StationLatest.ws_50cm,
+                StationLatest.ws_2m,
+            )
+            .join(StationLatest, Station.id_station == StationLatest.id_station)
+            .filter(Station.id_station == id_station)
+            .first()
+        )
+        return data_row_aaws
+
+    else:
+        return {"None"}
+
+
+def get_export_data_oneday(db: Session, id_station: str, tanggal):
+    start_dt = datetime.combine(tanggal, time.min)
+    end_dt = start_dt + timedelta(days=1)
+    data = (db.query(Station.id_station, Station.tipe_station).filter(Station.id_station == id_station)).first()
+    type = data.tipe_station
+    if type == "arg":
+        ObsModel = ObservationARG
+        data_row_arg = (
+            db.query(
+                Station.id_station,
+                Station.tipe_station,
+                Station.name_station,
+                Station.nama_kota,
+                Station.latitude,
+                Station.longitude,
+                Station.elevasi,
+                ObsModel.observed_at,
+                ObsModel.ingested_at,
+                ObsModel.rr,
+            )
+            .join(ObsModel, Station.id_station == ObsModel.id_station)
+            .filter(Station.id_station == id_station,
+                    ObsModel.observed_at >= start_dt,
+                    ObsModel.observed_at < end_dt,).all()
+        )
+        items = [dict(row._mapping) for row in data_row_arg]
+        return {
+            "id_station": id_station,
+            "tipe_station": "arg",
+            "series": {
+                "rr": [
+                    {
+                        "time": item["observed_at"].isoformat(),
+                        "rr": item["rr"],
+                    }
+                    for item in items
+                ]
+            }
+        }
+
+    elif type == "aws":
+        ObsModel = ObservationAWS
+        data_row_aws = (
+            db.query(
+                Station.id_station,
+                Station.tipe_station,
+                Station.name_station,
+                Station.nama_kota,
+                Station.latitude,
+                Station.longitude,
+                Station.elevasi,
+                ObsModel.observed_at,
+                ObsModel.ingested_at,
+                ObsModel.rr,
+                ObsModel.pp_air,
+                ObsModel.rh_avg,
+                ObsModel.sr_avg,
+                ObsModel.sr_max,
+                ObsModel.wd_avg,
+                ObsModel.ws_avg,
+                ObsModel.ws_max,
+                ObsModel.tt_air_avg,
+                ObsModel.tt_air_min,
+                ObsModel.tt_air_max,
+            )
+            .join(ObsModel, Station.id_station == ObsModel.id_station)
+            .filter(Station.id_station == id_station,
+                    ObsModel.observed_at >= start_dt,
+                    ObsModel.observed_at < end_dt,).all()
+        )
+        items = [dict(row._mapping) for row in data_row_aws]
+        return {
+            "id_station": id_station,
+            "tipe_station": "aws",
+            "series": {
+                "rr": [
+                    {
+                        "time": item["observed_at"].isoformat(),
+                        "rr": item["rr"],
+                        "pp_air": item["pp_air"],
+                        "rh_avg": item["rh_avg"],
+                        "sr_avg": item["sr_avg"],
+                        "sr_max": item["sr_max"],
+                        "wd_avg": item["wd_avg"],
+                        "ws_avg": item["ws_avg"],
+                        "ws_max": item["ws_max"],
+                        "tt_air_avg": item["tt_air_avg"],
+                        "tt_air_min": item["tt_air_min"],
+                        "tt_air_max": item["tt_air_max"],
+                    }
+                    for item in items
+                ]
+            }
+        }
+
+    elif type == "aaws":
+        ObsModel = ObservationAAWS
+        data_row_aaws = (
+            db.query(
+                Station.id_station,
+                Station.tipe_station,
+                Station.name_station,
+                Station.nama_kota,
+                Station.latitude,
+                Station.longitude,
+                Station.elevasi,
+                ObsModel.observed_at,
+                ObsModel.ingested_at,
+                ObsModel.rr,
+                ObsModel.pp_air,
+                ObsModel.rh_avg,
+                ObsModel.sr_avg,
+                ObsModel.sr_max,
+                ObsModel.wd_avg,
+                ObsModel.ws_avg,
+                ObsModel.ws_max,
+                ObsModel.tt_air_avg,
+                ObsModel.tt_air_min,
+                ObsModel.tt_air_max,
+                ObsModel.ws_50cm,
+                ObsModel.ws_2m,
+            )
+            .join(ObsModel, Station.id_station == ObsModel.id_station)
+            .filter(Station.id_station == id_station,
+                    ObsModel.observed_at >= start_dt,
+                    ObsModel.observed_at < end_dt,).all()
+        )
+        items = [dict(row._mapping) for row in data_row_aaws]
+        return {
+            "id_station": id_station,
+            "tipe_station": "aaws",
+            "series": {
+                "rr": [
+                    {
+                        "time": item["observed_at"].isoformat(),
+                        "rr": item["rr"],
+                        "pp_air": item["pp_air"],
+                        "rh_avg": item["rh_avg"],
+                        "sr_avg": item["sr_avg"],
+                        "sr_max": item["sr_max"],
+                        "wd_avg": item["wd_avg"],
+                        "ws_avg": item["ws_avg"],
+                        "ws_max": item["ws_max"],
+                        "tt_air_avg": item["tt_air_avg"],
+                        "tt_air_min": item["tt_air_min"],
+                        "tt_air_max": item["tt_air_max"],
+                        "ws_50cm":item["ws_50cm"],
+                        "ws_2m":item["ws_2m"]
+                    }
+                    for item in items
+                ]
+            }
+        }
+
+    else:
+        return {"None"}
+
 
 
 def get_data_by_date(db, id_station: str, tanggal):
-
 
     start_dt = datetime.combine(tanggal, time.min)
     end_dt = start_dt + timedelta(days=1)
@@ -288,7 +488,7 @@ def get_data_by_date(db, id_station: str, tanggal):
         "ideal_data": ideal_data,
         "total_data_masuk": total_data,
         "persentase": persen,
-        "status_realtime": latest.status_realtime if latest else "NO DATA",
+        "status_realtime": latest.status_realtime if latest else "OFF",
         "last_observed_at": str(latest.last_observed_at) if latest and latest.last_observed_at else None,
     }
 

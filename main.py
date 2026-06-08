@@ -12,6 +12,7 @@ from schemas.schemas import (
     RealtimeStationResponse,
     RealtimeSummaryItem,
     RealtimeSummaryResponse,
+    StationResponse
 )
 from services.query_logic import (
     get_realtime_map_status,
@@ -20,7 +21,8 @@ from services.query_logic import (
     get_realtime_summary,
     get_station_realtime_detail,
     get_data_by_date,
-    get_daily_summary_by_type
+    get_daily_summary_by_type,
+    get_export_data_oneday
 )
 
 app = FastAPI()
@@ -100,12 +102,26 @@ def realtime_summary(db: Session = Depends(get_db)):
     return RealtimeSummaryResponse(items=items)
 
 
-@app.get("/station/{id_station}", response_model=RealtimeStationResponse)
+@app.get("/station/{id_station}", response_model=StationResponse)
 def realtime_station_detail(
     id_station: str,
     db: Session = Depends(get_db),
 ):
     row = get_station_realtime_detail(db, id_station)
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Station tidak ditemukan")
+
+    return row
+
+
+@app.get("/station/export/{id_station}")
+def realtime_oneday_data(
+    id_station: str,
+    tanggal : date,
+    db: Session = Depends(get_db)
+):
+    row = get_export_data_oneday(db, id_station, tanggal)
 
     if not row:
         raise HTTPException(status_code=404, detail="Station tidak ditemukan")

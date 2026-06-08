@@ -2,7 +2,7 @@ const CHAT_API_URL =
   import.meta.env.VITE_API_BASE_URL
     ? `${import.meta.env.VITE_API_BASE_URL}/chat/query`
     : null
-
+import { TOKEN_KEY } from '@/api/client'
 /**
  * Kirim pesan chatbot ke backend LangChain FastAPI
  *
@@ -14,7 +14,8 @@ const CHAT_API_URL =
 export async function sendBackendChat(
   message,
   history = [],
-  context = {}
+  context = {},
+  provider = 'gemini'
 ) {
   if (!CHAT_API_URL) {
     throw new Error('VITE_API_BASE_URL belum diset.')
@@ -26,7 +27,7 @@ export async function sendBackendChat(
 
   const payload = {
     message: message.trim(),
-
+    provider,
     history: Array.isArray(history)
       ? history.map((item) => ({
           role: item.role,
@@ -48,21 +49,24 @@ export async function sendBackendChat(
     session_id: 'bmkg-ai-analyst',
   }
 
-  let response
+ let response
 
-  try {
-    response = await fetch(CHAT_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    })
-  } catch (networkError) {
-    throw new Error(
-      'Tidak dapat terhubung ke server chatbot.'
-    )
-  }
+    try {
+      const token = localStorage.getItem(TOKEN_KEY)
+
+      response = await fetch(CHAT_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      })
+    } catch (networkError) {
+      throw new Error(
+        'Tidak dapat terhubung ke server chatbot.'
+      )
+    }
 
   if (!response.ok) {
     let errorText = ''

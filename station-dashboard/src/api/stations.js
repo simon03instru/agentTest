@@ -43,3 +43,9 @@ export const fetchSummary = () => apiClient.get('/summary')
  * GET /station/:id → detail satu stasiun
  */
 export const fetchStationDetail = (id) => apiClient.get(`/station/${id}`)
+
+
+export const fetchExportData = (id_station, tanggal) =>
+  apiClient.get(`/station/export/${id_station}`, {
+    params: { tanggal },
+  })
