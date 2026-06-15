@@ -53,23 +53,6 @@ memory = InMemorySaver()
 
 agent = None
 
-# ============================================================
-# Get Previous Conv --> Short Memory
-# ============================================================
-def pre_model_hook(state):
-
-    trimmed = trim_messages(
-        state["messages"],
-        strategy="last",
-        token_counter=count_tokens_approximately,
-        max_tokens=3000,
-        start_on="human",
-        end_on=("human", "tool"),
-    )
-
-    return {
-        "messages": trimmed
-    }
 
 # ============================================================
 # MCP Tools
@@ -186,12 +169,12 @@ async def handle_message(
         from langchain_core.messages import HumanMessage
         all_messages = existing_messages + [HumanMessage(content=user_message)]
 
-        # 3. Trim to last ~3000 tokens
+        # 3. Trim to last ~tokens
         trimmed_messages = trim_messages(
             all_messages,
             strategy="last",
             token_counter=count_tokens_approximately,
-            max_tokens=300,
+            max_tokens=100,
             start_on="human",
             end_on=("human", "tool"),
         )
@@ -212,7 +195,7 @@ async def handle_message(
     except Exception as e:
         logger.exception("Agent execution error")
         await update.message.reply_text(
-            "Maaf, terjadi kesalahan saat memproses permintaan Anda."
+            "Maaf, terjadi kesalahan saat memproses permintaan Anda. Mohon ulangi"
         )
 
 
