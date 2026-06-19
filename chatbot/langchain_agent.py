@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 
 from langchain.agents import create_agent
 from langchain_core.messages import HumanMessage
@@ -21,6 +22,10 @@ async def get_mcp_tools():
                 "command": "python",
                 "args": [str(mcp_script)],
                 "transport": "stdio",
+                # Pass the container environment through so the MCP subprocess
+                # can see database_url and the other runtime config values.
+                "env": dict(os.environ),
+                "cwd": str(Path(__file__).resolve().parent.parent),
             }
         }
     )
