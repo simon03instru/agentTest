@@ -11,7 +11,7 @@ function createSessionId() {
   return `web-chat-${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
-export function useChatbot(selectedProvider = 'gemini') {
+export function useChatbot(selectedModel = 'gemini-2.5-flash-lite') {
   const sessionIdRef = useRef(createSessionId())
 
   const [messages, setMessages] = useState([
@@ -40,6 +40,8 @@ export function useChatbot(selectedProvider = 'gemini') {
       currentTime: new Date().toLocaleString('id-ID'),
     }
   }, [summary])
+
+  const selectedProvider = selectedModel.startsWith('gpt-') ? 'openai' : 'gemini'
 
   const send = useCallback(
     async (text) => {
@@ -78,6 +80,7 @@ export function useChatbot(selectedProvider = 'gemini') {
           history,
           dashboardContext,
           selectedProvider,
+          selectedModel,
           sessionIdRef.current
         )
 
@@ -115,7 +118,7 @@ export function useChatbot(selectedProvider = 'gemini') {
         setIsLoading(false)
       }
     },
-    [messages, isLoading, dashboardContext, selectedProvider]
+    [messages, isLoading, dashboardContext, selectedProvider, selectedModel]
   )
 
   const clear = useCallback(() => {

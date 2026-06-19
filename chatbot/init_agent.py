@@ -21,8 +21,8 @@ async def get_mcp_tools():
     return await client.get_tools()
 
 
-async def build_agent(provider: str = "gemini"):
-    llm = get_llm(provider)
+async def build_agent(provider: str = "gemini", model: str | None = None):
+    llm = get_llm(provider, model=model)
 
     tools = await get_mcp_tools()
 
@@ -36,9 +36,10 @@ async def build_agent(provider: str = "gemini"):
 async def run_monitoring_agent(
     message: str,
     provider: str = "gemini",
+    model: str | None = None,
     session_id: str | None = None,
 ) -> str:
-    agent = await build_agent(provider)
+    agent = await build_agent(provider, model=model)
 
     result = await agent.ainvoke(
         {

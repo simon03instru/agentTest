@@ -12,6 +12,7 @@ class ChatRequest(BaseModel):
     history: list = Field(default_factory=list)
     context: dict = Field(default_factory=dict)
     provider: str = "gemini"
+    model: str | None = None
     session_id: str | None = None
 
 
@@ -26,6 +27,7 @@ async def chat_query(payload: ChatRequest, current_user: User = Depends(require_
     answer = await run_monitoring_agent(
         message=payload.message,
         provider=payload.provider,
+        model=payload.model,
         session_id=thread_id,
     )
 

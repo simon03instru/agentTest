@@ -48,6 +48,14 @@ function parseBold(text) {
   return text.replace(/\*\*(.+?)\*\*/g, '<strong class="text-white font-semibold">$1</strong>')
 }
 
+const MODEL_OPTIONS = [
+  { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite', provider: 'gemini' },
+  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', provider: 'gemini' },
+  { value: 'gpt-5.4-mini', label: 'GPT-5.4 Mini', provider: 'openai' },
+  { value: 'gpt-5.4-nano', label: 'GPT-5.4 Nano', provider: 'openai' },
+  { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini', provider: 'openai' },
+]
+
 // ── Typing indicator ────────────────────────────────────────────────────────
 function TypingDots() {
   return (
@@ -114,8 +122,9 @@ const SUGGESTIONS = [
 export default function Chatbot() {
   const [isOpen, setIsOpen]       = useState(false)
   const [input, setInput]         = useState('')
-  const [selectedProvider, setSelectedProvider] = useState('gemini')
-  const { messages, isLoading, send, clear } = useChatbot(selectedProvider)
+  const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash-lite')
+  const selectedOption = MODEL_OPTIONS.find((opt) => opt.value === selectedModel) ?? MODEL_OPTIONS[0]
+  const { messages, isLoading, send, clear } = useChatbot(selectedModel)
   const user = JSON.parse(localStorage.getItem('user'))
   const canAccessChat =
     user?.role === 'admin' ||
@@ -182,18 +191,21 @@ export default function Chatbot() {
                 </div>
 
                 <select
-                  value={selectedProvider}
-                  onChange={(e) => setSelectedProvider(e.target.value)}
+                  value={selectedModel}
+                  onChange={(e) => setSelectedModel(e.target.value)}
                   className="bg-surface-2 border border-white/10 text-[10px] text-slate-300 rounded-md px-1.5 py-0.5 outline-none focus:border-accent/40"
                 >
-                  <option value="gemini">Gemini</option>
-                  <option value="openai">OpenAI</option>
+                  {MODEL_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 
               <div className="font-mono text-[9px] text-slate-500 flex items-center gap-1">
                 <div className="w-1 h-1 rounded-full bg-status-on animate-pulse-slow" />
-                {selectedProvider.toUpperCase()} aktif
+                {selectedOption.label} aktif · {selectedOption.provider.toUpperCase()}
               </div>
             </div>
           </div>

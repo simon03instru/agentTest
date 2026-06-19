@@ -33,8 +33,8 @@ async def get_mcp_tools():
     return await client.get_tools()
 
 
-async def build_agent(provider: str = "gemini"):
-    llm = get_llm(provider)
+async def build_agent(provider: str = "gemini", model: str | None = None):
+    llm = get_llm(provider, model=model)
     tools = await get_mcp_tools()
 
     return create_agent(
@@ -45,21 +45,26 @@ async def build_agent(provider: str = "gemini"):
     )
 
 
-async def get_agent(provider: str = "gemini"):
+async def get_agent(provider: str = "gemini", model: str | None = None):
     provider_key = provider.lower()
+    model_key = model or "default"
 
     if provider_key not in agents:
-        agents[provider_key] = await build_agent(provider_key)
+        agents[provider_key] = {}
 
-    return agents[provider_key]
+    if model_key not in agents[provider_key]:
+        agents[provider_key][model_key] = await build_agent(provider_key, model=model)
+
+    return agents[provider_key][model_key]
 
 
 async def run_monitoring_agent(
     message: str,
     provider: str = "gemini",
+    model: str | None = None,
     session_id: str | None = None,
 ) -> str:
-    agent = await get_agent(provider)
+    agent = await get_agent(provider, model=model)
     thread_id = session_id or "web-chat"
     config = {"configurable": {"thread_id": thread_id}}
 

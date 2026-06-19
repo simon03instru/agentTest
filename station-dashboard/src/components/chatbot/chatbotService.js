@@ -16,6 +16,7 @@ export async function sendBackendChat(
   history = [],
   context = {},
   provider = 'gemini',
+  model = null,
   sessionId = 'bmkg-ai-analyst'
 ) {
   if (!CHAT_API_URL) {
@@ -29,6 +30,7 @@ export async function sendBackendChat(
   const payload = {
     message: message.trim(),
     provider,
+    model,
     history: Array.isArray(history)
       ? history.map((item) => ({
           role: item.role,
