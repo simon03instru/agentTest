@@ -6,6 +6,7 @@ from chatbot.chatbot_route import router as ai_router
 import uvicorn
 from datetime import date
 from login_routes import auth_routes, user_routes
+import os
 
 from schemas.schemas import (
     RealtimeMapResponse,
@@ -27,12 +28,18 @@ from services.query_logic import (
 
 app = FastAPI()
 
+cors_origins = [
+    origin.strip()
+    for origin in os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:3009",
+    ).split(",")
+    if origin.strip()
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3009",
-    ],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

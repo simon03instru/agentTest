@@ -16,6 +16,7 @@ ecdsa
 email-validator
 et_xmlfile
 fastapi
+fastmcp
 filetype
 google-auth
 google-genai
@@ -30,6 +31,7 @@ jsonpointer
 langchain
 langchain-core
 langchain-google-genai
+langchain-mcp-adapters
 langchain-openai
 langchain-protocol
 langgraph

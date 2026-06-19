@@ -1,9 +1,19 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useRef } from 'react'
 import { sendBackendChat } from './chatbotService'
 import { useSummary } from '@/hooks/useStations'
 import { transformSummary } from '@/utils/transformSummary'
 
+function createSessionId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return `web-chat-${crypto.randomUUID()}`
+  }
+
+  return `web-chat-${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
 export function useChatbot(selectedProvider = 'gemini') {
+  const sessionIdRef = useRef(createSessionId())
+
   const [messages, setMessages] = useState([
     {
       id: 'welcome',
@@ -67,7 +77,8 @@ export function useChatbot(selectedProvider = 'gemini') {
           cleanText,
           history,
           dashboardContext,
-          selectedProvider
+          selectedProvider,
+          sessionIdRef.current
         )
 
         setMessages((prev) =>
@@ -108,6 +119,8 @@ export function useChatbot(selectedProvider = 'gemini') {
   )
 
   const clear = useCallback(() => {
+    sessionIdRef.current = createSessionId()
+
     setMessages([
       {
         id: 'welcome',

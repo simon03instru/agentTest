@@ -15,7 +15,8 @@ export async function sendBackendChat(
   message,
   history = [],
   context = {},
-  provider = 'gemini'
+  provider = 'gemini',
+  sessionId = 'bmkg-ai-analyst'
 ) {
   if (!CHAT_API_URL) {
     throw new Error('VITE_API_BASE_URL belum diset.')
@@ -46,7 +47,7 @@ export async function sendBackendChat(
         new Date().toLocaleString('id-ID'),
     },
 
-    session_id: 'bmkg-ai-analyst',
+    session_id: sessionId,
   }
 
  let response
