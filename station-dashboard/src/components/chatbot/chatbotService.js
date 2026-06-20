@@ -97,5 +97,5 @@ export async function sendBackendChat(
     throw new Error('Jawaban chatbot kosong.')
   }
 
-  return data.answer
+  return data
 }

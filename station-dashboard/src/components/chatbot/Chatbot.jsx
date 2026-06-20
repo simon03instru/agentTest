@@ -48,6 +48,467 @@ function parseBold(text) {
   return text.replace(/\*\*(.+?)\*\*/g, '<strong class="text-white font-semibold">$1</strong>')
 }
 
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+function escapeXml(text) {
+  return String(text ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
+}
+
+function hexToRgba(hex, alpha = 1) {
+  const cleaned = hex.replace('#', '')
+  const value = cleaned.length === 3
+    ? cleaned.split('').map((ch) => ch + ch).join('')
+    : cleaned
+
+  const int = Number.parseInt(value, 16)
+  const r = (int >> 16) & 255
+  const g = (int >> 8) & 255
+  const b = int & 255
+  return `rgba(${r},${g},${b},${alpha})`
+}
+
+function sanitizeFilenamePart(text) {
+  return String(text ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/gi, '_')
+    .replace(/^_+|_+$/g, '')
+}
+
+function exportChartJSON(chart) {
+  const filename = `${sanitizeFilenamePart(chart?.title || 'chart') || 'chart'}.json`
+  const payload = JSON.stringify(chart, null, 2)
+  downloadBlob(new Blob([payload], { type: 'application/json;charset=utf-8;' }), filename)
+}
+
+function exportChartCSV(chart) {
+  const labels = Array.isArray(chart?.labels) ? chart.labels : []
+  const series = Array.isArray(chart?.series) ? chart.series : []
+  if (!labels.length || !series.length) return
+
+  const header = ['label', ...series.map((s, idx) => s?.name || `series_${idx + 1}`)]
+  const rows = [header.join(',')]
+
+  labels.forEach((label, idx) => {
+    const cells = [
+      `"${String(label).replaceAll('"', '""')}"`,
+      ...series.map((s) => {
+        const value = s?.data?.[idx]
+        return value == null ? '' : String(value)
+      }),
+    ]
+    rows.push(cells.join(','))
+  })
+
+  const filename = `${sanitizeFilenamePart(chart?.title || 'chart') || 'chart'}.csv`
+  downloadBlob(new Blob(['\uFEFF' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' }), filename)
+}
+
+function buildChartSvg(chart) {
+  const { title, chart_type: chartType = 'bar', labels = [], series = [], summary } = chart || {}
+  const colors = ['#00d4ff', '#a78bfa', '#22c55e', '#f59e0b', '#ef4444']
+  const width = 1200
+  const height = 720
+  const pad = { top: 90, right: 50, bottom: 110, left: 90 }
+  const plotW = width - pad.left - pad.right
+  const plotH = height - pad.top - pad.bottom
+  const max = Math.max(...series.flatMap((s) => s.data || []), 1)
+  const safeTitle = escapeXml(title || 'Chart')
+  const safeSummary = summary ? escapeXml(summary) : ''
+
+  if (chartType === 'stacked_bar') {
+    const rowGap = labels.length > 8 ? 12 : 18
+    const barH = Math.max(14, (plotH - rowGap * (labels.length - 1)) / Math.max(labels.length, 1))
+
+    const rows = labels.map((label, idx) => {
+      const values = series.map((s) => Number(s?.data?.[idx] ?? 0))
+      const total = values.reduce((sum, v) => sum + v, 0) || 1
+      let x = pad.left
+      const segments = values.map((value, i) => {
+        const w = (value / total) * plotW
+        const seg = `<rect x="${x}" y="${pad.top + idx * (barH + rowGap)}" width="${Math.max(w, 0)}" height="${barH}" rx="8" fill="${colors[i % colors.length]}"/>`
+        x += w
+        return seg
+      }).join('')
+
+      return `
+        <text x="${pad.left - 12}" y="${pad.top + idx * (barH + rowGap) + barH / 2 + 4}" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="18" fill="#94a3b8">${escapeXml(label)}</text>
+        <text x="${width - pad.right + 8}" y="${pad.top + idx * (barH + rowGap) + barH / 2 + 4}" font-family="IBM Plex Mono, monospace" font-size="18" fill="#94a3b8">${total}</text>
+        ${segments}
+      `
+    }).join('')
+
+    const legendY = height - 34
+    const legend = series.map((s, i) => `
+      <rect x="${pad.left + i * 190}" y="${legendY - 12}" width="12" height="12" rx="6" fill="${colors[i % colors.length]}"/>
+      <text x="${pad.left + i * 190 + 18}" y="${legendY - 2}" font-family="IBM Plex Mono, monospace" font-size="16" fill="#94a3b8">${escapeXml(s?.name || `S${i + 1}`)}</text>
+    `).join('')
+
+    return `
+      <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+        <rect width="100%" height="100%" fill="#0b1220"/>
+        <rect x="18" y="18" width="${width - 36}" height="${height - 36}" rx="28" fill="#0f172a" stroke="${hexToRgba('#00d4ff', 0.18)}"/>
+        <text x="${pad.left}" y="54" font-family="Inter, system-ui, sans-serif" font-size="26" font-weight="700" fill="#ffffff">${safeTitle}</text>
+        ${safeSummary ? `<text x="${pad.left}" y="78" font-family="IBM Plex Mono, monospace" font-size="16" fill="#94a3b8">${safeSummary}</text>` : ''}
+        ${rows}
+        ${legend}
+      </svg>
+    `
+  }
+
+  if (chartType === 'line') {
+    const chartHeight = plotH - 36
+
+    const grids = Array.from({ length: 5 }, (_, i) => {
+      const y = pad.top + (chartHeight / 4) * i
+      const val = Math.round(max - (max / 4) * i)
+      return `
+        <line x1="${pad.left}" y1="${y}" x2="${width - pad.right}" y2="${y}" stroke="rgba(255,255,255,0.06)"/>
+        <text x="${pad.left - 12}" y="${y + 5}" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="16" fill="#64748b">${val}</text>
+      `
+    }).join('')
+
+    const lines = series.map((s, idx) => {
+      const points = (s?.data || []).map((value, i) => {
+        const x = pad.left + (labels.length <= 1 ? plotW / 2 : (plotW * i) / Math.max(labels.length - 1, 1))
+        const y = pad.top + chartHeight - ((Number(value) || 0) / max) * chartHeight
+        return `${x},${y}`
+      }).join(' ')
+      const fill = hexToRgba(colors[idx % colors.length], 0.12)
+      return `
+        <polyline points="${points}" fill="none" stroke="${colors[idx % colors.length]}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+        <polygon points="${pad.left},${pad.top + chartHeight} ${points} ${width - pad.right},${pad.top + chartHeight}" fill="${fill}"/>
+      `
+    }).join('')
+
+    const xLabels = labels.map((label, i) => {
+      const x = pad.left + (labels.length <= 1 ? plotW / 2 : (plotW * i) / Math.max(labels.length - 1, 1))
+      return `<text x="${x}" y="${height - 52}" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="16" fill="#94a3b8">${escapeXml(label)}</text>`
+    }).join('')
+
+    const legend = series.map((s, i) => `
+      <rect x="${pad.left + i * 220}" y="${height - 28}" width="12" height="12" rx="6" fill="${colors[i % colors.length]}"/>
+      <text x="${pad.left + i * 220 + 18}" y="${height - 18}" font-family="IBM Plex Mono, monospace" font-size="16" fill="#94a3b8">${escapeXml(s?.name || `S${i + 1}`)}</text>
+    `).join('')
+
+    return `
+      <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+        <rect width="100%" height="100%" fill="#0b1220"/>
+        <rect x="18" y="18" width="${width - 36}" height="${height - 36}" rx="28" fill="#0f172a" stroke="${hexToRgba('#00d4ff', 0.18)}"/>
+        <text x="${pad.left}" y="54" font-family="Inter, system-ui, sans-serif" font-size="26" font-weight="700" fill="#ffffff">${safeTitle}</text>
+        ${safeSummary ? `<text x="${pad.left}" y="78" font-family="IBM Plex Mono, monospace" font-size="16" fill="#94a3b8">${safeSummary}</text>` : ''}
+        ${grids}
+        ${lines}
+        ${xLabels}
+        ${legend}
+      </svg>
+    `
+  }
+
+  const barWidth = labels.length ? Math.min(70, plotW / (labels.length * 1.5)) : 70
+  const gap = labels.length ? (plotW - barWidth * labels.length) / Math.max(labels.length, 1) : 40
+  const bars = labels.map((label, idx) => {
+    const value = Number(series[0]?.data?.[idx] ?? 0)
+    const h = (value / max) * plotH
+    const x = pad.left + idx * (barWidth + gap)
+    const y = pad.top + plotH - h
+    return `
+      <rect x="${x}" y="${y}" width="${barWidth}" height="${h}" rx="10" fill="${colors[0]}"/>
+      <text x="${x + barWidth / 2}" y="${height - 52}" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="16" fill="#94a3b8">${escapeXml(label)}</text>
+      <text x="${x + barWidth / 2}" y="${Math.max(y - 8, 64)}" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="16" fill="#e2e8f0">${value}</text>
+    `
+  }).join('')
+
+  return `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+      <rect width="100%" height="100%" fill="#0b1220"/>
+      <rect x="18" y="18" width="${width - 36}" height="${height - 36}" rx="28" fill="#0f172a" stroke="${hexToRgba('#00d4ff', 0.18)}"/>
+      <text x="${pad.left}" y="54" font-family="Inter, system-ui, sans-serif" font-size="26" font-weight="700" fill="#ffffff">${safeTitle}</text>
+      ${safeSummary ? `<text x="${pad.left}" y="${78}" font-family="IBM Plex Mono, monospace" font-size="16" fill="#94a3b8">${safeSummary}</text>` : ''}
+      ${bars}
+    </svg>
+  `
+}
+
+async function exportChartPng(chart) {
+  const svg = buildChartSvg(chart)
+  const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const img = new Image()
+
+  try {
+    const loaded = await new Promise((resolve, reject) => {
+      img.onload = () => resolve(true)
+      img.onerror = reject
+      img.src = url
+    })
+
+    if (!loaded) return
+
+    const canvas = document.createElement('canvas')
+    canvas.width = 1200
+    canvas.height = 720
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.fillStyle = '#0b1220'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.drawImage(img, 0, 0)
+
+    canvas.toBlob((pngBlob) => {
+      if (!pngBlob) return
+      const filename = `${sanitizeFilenamePart(chart?.title || 'chart') || 'chart'}.png`
+      downloadBlob(pngBlob, filename)
+    }, 'image/png')
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+}
+
+function extractChartPayload(content) {
+  try {
+    const parsed = JSON.parse(content)
+    if (parsed && typeof parsed === 'object' && ('text' in parsed || 'chart' in parsed || 'chart_svg' in parsed)) {
+      return {
+        text: parsed.text || '',
+        chart: parsed.chart || null,
+        chart_svg: parsed.chart_svg || null,
+      }
+    }
+  } catch {
+    // fall through to legacy marker parsing
+  }
+
+  const match = content.match(/\[\[chart\]\]\s*([\s\S]*?)\s*\[\[\/chart\]\]/)
+  if (!match) return { text: content, chart: null, chart_svg: null }
+
+  try {
+    const chart = JSON.parse(match[1])
+    const text = content.replace(match[0], '').trim()
+    return { text, chart, chart_svg: null }
+  } catch {
+    return { text: content, chart: null, chart_svg: null }
+  }
+}
+
+function ChartBlock({ chart, chartSvg }) {
+  if (chartSvg) {
+    return (
+      <div className="mt-3 rounded-xl border border-accent/20 bg-surface-1/80 p-2">
+        <img src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(chartSvg)}`} alt={chart?.title || 'chart'} className="w-full rounded-lg" />
+      </div>
+    )
+  }
+
+  if (!chart) return null
+
+  const { title, chart_type: chartType = 'bar', labels = [], series = [], summary } = chart
+  const colors = ['#00d4ff', '#a78bfa', '#22c55e', '#f59e0b', '#ef4444']
+  const max = Math.max(...series.flatMap((s) => s.data || []), 1)
+
+  if (chartType === 'stacked_bar') {
+    return (
+      <div className="mt-3 rounded-xl border border-accent/20 bg-surface-1/80 p-3 space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-xs font-semibold text-white">{title}</div>
+            {summary && <div className="text-[10px] text-slate-400 mt-1">{summary}</div>}
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => exportChartCSV(chart)}
+              className="rounded-md border border-white/10 bg-surface-2 px-2 py-1 text-[10px] font-mono text-slate-300 hover:border-accent/30 hover:text-accent transition-colors"
+              title="Download data CSV"
+            >
+              CSV
+            </button>
+            <button
+              type="button"
+              onClick={() => exportChartJSON(chart)}
+              className="rounded-md border border-white/10 bg-surface-2 px-2 py-1 text-[10px] font-mono text-slate-300 hover:border-accent/30 hover:text-accent transition-colors"
+              title="Download data JSON"
+            >
+              JSON
+            </button>
+            <button
+              type="button"
+              onClick={() => exportChartPng(chart)}
+              className="rounded-md border border-white/10 bg-surface-2 px-2 py-1 text-[10px] font-mono text-slate-300 hover:border-accent/30 hover:text-accent transition-colors"
+              title="Download chart PNG"
+            >
+              PNG
+            </button>
+          </div>
+        </div>
+        <div className="space-y-2">
+          {labels.map((label, idx) => {
+            const values = series.map((s) => s.data?.[idx] || 0)
+            const total = values.reduce((sum, v) => sum + v, 0)
+            return (
+              <div key={label} className="space-y-1">
+                <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
+                  <span>{label}</span>
+                  <span>{total}</span>
+                </div>
+                <div className="h-2.5 rounded-full overflow-hidden bg-surface-3 flex">
+                  {values.map((value, i) => (
+                    <div
+                      key={i}
+                      className="h-full"
+                      style={{ width: `${(value / Math.max(total, 1)) * 100}%`, background: colors[i % colors.length] }}
+                      title={`${series[i]?.name || `S${i + 1}`}: ${value}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+        <div className="flex flex-wrap gap-2 text-[10px] font-mono text-slate-500">
+          {series.map((s, i) => (
+            <span key={s.name || i} className="inline-flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full" style={{ background: colors[i % colors.length] }} />
+              {s.name}
+            </span>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (chartType === 'line') {
+    return (
+      <div className="mt-3 rounded-xl border border-accent/20 bg-surface-1/80 p-3 space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-xs font-semibold text-white">{title}</div>
+            {summary && <div className="text-[10px] text-slate-400 mt-1">{summary}</div>}
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => exportChartCSV(chart)}
+              className="rounded-md border border-white/10 bg-surface-2 px-2 py-1 text-[10px] font-mono text-slate-300 hover:border-accent/30 hover:text-accent transition-colors"
+              title="Download data CSV"
+            >
+              CSV
+            </button>
+            <button
+              type="button"
+              onClick={() => exportChartJSON(chart)}
+              className="rounded-md border border-white/10 bg-surface-2 px-2 py-1 text-[10px] font-mono text-slate-300 hover:border-accent/30 hover:text-accent transition-colors"
+              title="Download data JSON"
+            >
+              JSON
+            </button>
+            <button
+              type="button"
+              onClick={() => exportChartPng(chart)}
+              className="rounded-md border border-white/10 bg-surface-2 px-2 py-1 text-[10px] font-mono text-slate-300 hover:border-accent/30 hover:text-accent transition-colors"
+              title="Download chart PNG"
+            >
+              PNG
+            </button>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {series.map((s, idx) => (
+            <div key={s.name || idx} className="rounded-lg bg-surface-2 border border-white/5 p-2">
+              <div className="text-[10px] font-mono uppercase text-slate-500">{s.name}</div>
+              <div className="mt-1 text-sm text-white">{s.data?.at(-1) ?? 0}</div>
+              <div className="mt-2 flex items-end gap-1 h-16">
+                {(s.data || []).map((value, i) => (
+                  <div
+                    key={i}
+                    className="flex-1 rounded-t-sm"
+                    style={{ height: `${(value / max) * 100}%`, background: colors[idx % colors.length] }}
+                    title={`${labels[i] || i}: ${value}`}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px] font-mono text-slate-500">
+          {labels.map((label) => (
+            <div key={label} className="truncate">{label}</div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-3 rounded-xl border border-accent/20 bg-surface-1/80 p-3 space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-xs font-semibold text-white">{title}</div>
+          {summary && <div className="text-[10px] text-slate-400 mt-1">{summary}</div>}
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={() => exportChartCSV(chart)}
+            className="rounded-md border border-white/10 bg-surface-2 px-2 py-1 text-[10px] font-mono text-slate-300 hover:border-accent/30 hover:text-accent transition-colors"
+            title="Download data CSV"
+          >
+            CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => exportChartJSON(chart)}
+            className="rounded-md border border-white/10 bg-surface-2 px-2 py-1 text-[10px] font-mono text-slate-300 hover:border-accent/30 hover:text-accent transition-colors"
+            title="Download data JSON"
+          >
+            JSON
+          </button>
+          <button
+            type="button"
+            onClick={() => exportChartPng(chart)}
+            className="rounded-md border border-white/10 bg-surface-2 px-2 py-1 text-[10px] font-mono text-slate-300 hover:border-accent/30 hover:text-accent transition-colors"
+            title="Download chart PNG"
+          >
+            PNG
+          </button>
+        </div>
+      </div>
+      <div className="space-y-2">
+        {labels.map((label, idx) => {
+          const value = series[0]?.data?.[idx] ?? 0
+          return (
+            <div key={label} className="space-y-1">
+              <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
+                <span>{label}</span>
+                <span>{value}</span>
+              </div>
+              <div className="h-2.5 rounded-full bg-surface-3 overflow-hidden">
+                <div
+                  className="h-full rounded-full"
+                  style={{ width: `${(value / max) * 100}%`, background: colors[0] }}
+                />
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 const MODEL_OPTIONS = [
   { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite', provider: 'gemini' },
   { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', provider: 'gemini' },
@@ -75,6 +536,7 @@ function TypingDots() {
 function MessageBubble({ msg }) {
   const isUser = msg.role === 'user'
   const timeStr = msg.time?.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+  const { text, chart, chart_svg: chartSvg } = isUser ? { text: msg.content, chart: null, chart_svg: null } : extractChartPayload(msg.content || '')
 
   return (
     <div className={clsx('flex gap-2 animate-slide-up', isUser ? 'flex-row-reverse' : 'flex-row')}>
@@ -98,7 +560,8 @@ function MessageBubble({ msg }) {
             ? 'bg-status-off/10 border border-status-off/20 text-status-off rounded-tl-sm'
             : 'bg-surface-2 border border-white/5 text-slate-300 rounded-tl-sm'
       )}>
-        <RenderContent content={msg.content} />
+        <RenderContent content={text} />
+        {(chart || chartSvg) && <ChartBlock chart={chart} chartSvg={chartSvg} />}
         <div className={clsx(
           'font-mono text-[9px] mt-1.5',
           isUser ? 'text-accent/40 text-right' : 'text-slate-600'

@@ -75,7 +75,7 @@ export function useChatbot(selectedModel = 'gemini-2.5-flash-lite') {
       setError(null)
 
       try {
-        const answer = await sendBackendChat(
+        const response = await sendBackendChat(
           cleanText,
           history,
           dashboardContext,
@@ -89,7 +89,7 @@ export function useChatbot(selectedModel = 'gemini-2.5-flash-lite') {
             msg.id === assistantId
               ? {
                   ...msg,
-                  content: answer || 'Tidak ada respons dari AI Analyst.',
+                  content: JSON.stringify(response),
                   time: new Date(),
                 }
               : msg
