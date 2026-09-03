@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Request
 from db.db_connect import get_db
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,6 +8,10 @@ from datetime import date
 from login_routes import auth_routes, user_routes
 from report_routes import router as reporting_router
 import os
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
+from redis.cache import get_cache, set_cache
+from redis.limit import limiter
 
 from schemas.schemas import (
     RealtimeMapResponse,
@@ -59,44 +63,110 @@ def home():
 
 
 @app.get("/map", response_model=list[RealtimeMapResponse])
+@limiter.limit("30/minute")
 def realtime_map(
     tipe_station: str | None = None,
     status_realtime: str | None = None,
     db: Session = Depends(get_db),
 ):
+    cache_key = (
+        f"realtime:map:"
+        f"{tipe_station or 'ALL'}:"
+        f"{status_realtime or 'ALL'}"
+    )
+
+    cached = get_cache(cache_key)
+
+    if cached is not None:
+        return cached
+
     rows = get_realtime_map_status(
         db=db,
         tipe_station=tipe_station,
         status_realtime=status_realtime,
     )
+
+    set_cache(
+        cache_key,
+        rows,
+        ttl=10,
+    )
     return rows
 
 
 @app.get("/status", response_model=list[RealtimeStationResponse])
+@limiter.limit("30/minute")
 def realtime_status(
     tipe_station: str | None = None,
     status_realtime: str | None = None,
     db: Session = Depends(get_db),
 ):
+    cache_key = (
+        f"realtime:status:"
+        f"{tipe_station or 'ALL'}:"
+        f"{status_realtime or 'ALL'}"
+    )
+
+    cached = get_cache(cache_key)
+
+    if cached is not None:
+        return cached
+
     rows = get_all_realtime_status(
         db=db,
         tipe_station=tipe_station,
         status_realtime=status_realtime,
     )
+
+    set_cache(
+        cache_key,
+        rows,
+        ttl=10,
+    )
+
     return rows
 
 
 @app.get("/off", response_model=list[RealtimeStationResponse])
+@limiter.limit("30/minute")
 def realtime_off(
     tipe_station: str | None = None,
     db: Session = Depends(get_db),
 ):
+    cache_key = (
+        f"realtime:off:"
+        f"{tipe_station or 'ALL'}"
+    )
+
+    cached = get_cache(cache_key)
+
+    if cached is not None:
+        return cached
+
     rows = get_realtime_off_status(db=db, tipe_station=tipe_station)
+
+    set_cache(
+        cache_key,
+        rows,
+        ttl=10,
+    )
+
     return rows
 
 
 @app.get("/summary", response_model=RealtimeSummaryResponse)
+@limiter.limit("30/minute")
 def realtime_summary(db: Session = Depends(get_db)):
+
+    cache_key = "realtime:summary"
+
+    # CACHE CHECK
+    cached = get_cache(cache_key)
+
+    if cached is not None:
+        return cached
+
+    # CACHE MISS
     rows = get_realtime_summary(db)
 
     items = [
@@ -108,23 +178,48 @@ def realtime_summary(db: Session = Depends(get_db)):
         for row in rows
     ]
 
+    # SAVE TO REDIS
+    set_cache(
+        cache_key,
+        items,
+        ttl=15,
+    )
+
     return RealtimeSummaryResponse(items=items)
 
 
 @app.get("/station/{id_station}", response_model=StationResponse)
+@limiter.limit("30/minute")
 def realtime_station_detail(
     id_station: str,
     db: Session = Depends(get_db),
 ):
+    cache_key = (
+        f"realtime:station:"
+        f"{id_station}"
+    )
+
+    cached = get_cache(cache_key)
+
+    if cached is not None:
+        return cached
+
     row = get_station_realtime_detail(db, id_station)
 
     if not row:
         raise HTTPException(status_code=404, detail="Station tidak ditemukan")
 
+    set_cache(
+        cache_key,
+        row,
+        ttl=10,
+    )
+
     return row
 
 
 @app.get("/station/export/{id_station}")
+@limiter.limit("5/minute")
 def realtime_oneday_data(
     id_station: str,
     tanggal : date,
@@ -143,10 +238,37 @@ def realtime_oneday_data(
 
 
 @app.get("/percentage/{id_station}")
+@limiter.limit("20/minute")
 def data_site_realtime(id_station: str,tanggal: date, db: Session = Depends(get_db)):
-    return get_data_by_date(db, id_station, tanggal)
+
+    cache_key = (
+        f"realtime:station:"
+        f"{id_station}:"
+        f"{tanggal}"
+    )
+
+    cached = get_cache(cache_key)
+
+    if cached is not None:
+        return cached
+
+    result = get_data_by_date(
+        db,
+        id_station,
+        tanggal,
+    )
+
+    set_cache(
+        cache_key,
+        result,
+        ttl=30,
+    )
+
+    return result
+
 
 @app.get("/daily_status/{tipe_station}")
+@limiter.limit("20/minute")
 def daily_status_by_type(tipe_station: str,tanggal: date,db: Session = Depends(get_db)):
     tipe_station = tipe_station.upper()
 
