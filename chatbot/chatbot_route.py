@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 import json
 import re
 from auth.dependencies import require_roles
 from chatbot.langchain_agent import run_monitoring_agent
 from models.users import User
-from redis.limit import limiter
+from core.limit import limiter
 
 router = APIRouter(prefix="/chat", tags=["Chatbot"])
 
@@ -124,7 +124,7 @@ def build_chart_svg(chart: dict) -> str:
 
 @router.post("/query", response_model=ChatResponse)
 @limiter.limit("10/minute")
-async def chat_query(payload: ChatRequest, current_user: User = Depends(require_roles(["admin", "superadmin"]))):
+async def chat_query(request: Request,payload: ChatRequest, current_user: User = Depends(require_roles(["admin", "superadmin"]))):
     thread_id = payload.session_id or f"web-user-{current_user.id}"
 
     answer = await run_monitoring_agent(

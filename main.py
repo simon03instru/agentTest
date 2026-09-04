@@ -8,10 +8,8 @@ from datetime import date
 from login_routes import auth_routes, user_routes
 from report_routes import router as reporting_router
 import os
-from slowapi.errors import RateLimitExceeded
-from slowapi import _rate_limit_exceeded_handler
-from redis.cache import get_cache, set_cache
-from redis.limit import limiter
+from core.cache import get_cache, set_cache
+from core.limit import limiter
 
 from schemas.schemas import (
     RealtimeMapResponse,
@@ -65,6 +63,7 @@ def home():
 @app.get("/map", response_model=list[RealtimeMapResponse])
 @limiter.limit("30/minute")
 def realtime_map(
+    request: Request,
     tipe_station: str | None = None,
     status_realtime: str | None = None,
     db: Session = Depends(get_db),
@@ -97,6 +96,7 @@ def realtime_map(
 @app.get("/status", response_model=list[RealtimeStationResponse])
 @limiter.limit("30/minute")
 def realtime_status(
+    request: Request,
     tipe_station: str | None = None,
     status_realtime: str | None = None,
     db: Session = Depends(get_db),
@@ -130,6 +130,7 @@ def realtime_status(
 @app.get("/off", response_model=list[RealtimeStationResponse])
 @limiter.limit("30/minute")
 def realtime_off(
+    request: Request,
     tipe_station: str | None = None,
     db: Session = Depends(get_db),
 ):
@@ -156,7 +157,7 @@ def realtime_off(
 
 @app.get("/summary", response_model=RealtimeSummaryResponse)
 @limiter.limit("30/minute")
-def realtime_summary(db: Session = Depends(get_db)):
+def realtime_summary(request: Request, db: Session = Depends(get_db)):
 
     cache_key = "realtime:summary"
 
@@ -191,6 +192,7 @@ def realtime_summary(db: Session = Depends(get_db)):
 @app.get("/station/{id_station}", response_model=StationResponse)
 @limiter.limit("30/minute")
 def realtime_station_detail(
+    request: Request,
     id_station: str,
     db: Session = Depends(get_db),
 ):
@@ -221,6 +223,7 @@ def realtime_station_detail(
 @app.get("/station/export/{id_station}")
 @limiter.limit("5/minute")
 def realtime_oneday_data(
+    request: Request,
     id_station: str,
     tanggal : date,
     db: Session = Depends(get_db)
@@ -239,7 +242,7 @@ def realtime_oneday_data(
 
 @app.get("/percentage/{id_station}")
 @limiter.limit("20/minute")
-def data_site_realtime(id_station: str,tanggal: date, db: Session = Depends(get_db)):
+def data_site_realtime(request: Request, id_station: str,tanggal: date, db: Session = Depends(get_db)):
 
     cache_key = (
         f"realtime:station:"
@@ -269,7 +272,7 @@ def data_site_realtime(id_station: str,tanggal: date, db: Session = Depends(get_
 
 @app.get("/daily_status/{tipe_station}")
 @limiter.limit("20/minute")
-def daily_status_by_type(tipe_station: str,tanggal: date,db: Session = Depends(get_db)):
+def daily_status_by_type(request: Request, tipe_station: str,tanggal: date,db: Session = Depends(get_db)):
     tipe_station = tipe_station.upper()
 
     if tipe_station not in ["ARG", "AWS", "AAWS"]:

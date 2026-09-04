@@ -1,6 +1,6 @@
 import json
 
-from redis.redis import redis_client
+from core.cache_redis import redis_client
 
 
 def get_cache(key: str):
