@@ -165,7 +165,7 @@ def realtime_summary(request: Request, db: Session = Depends(get_db)):
     cached = get_cache(cache_key)
 
     if cached is not None:
-        return cached
+        return RealtimeSummaryResponse(items=cached)
 
     # CACHE MISS
     rows = get_realtime_summary(db)
