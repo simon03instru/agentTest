@@ -1,6 +1,44 @@
 import json
 
 from core.cache_redis import redis_client
+from fastapi.encoders import jsonable_encoder
+
+
+def normalize_for_cache(data):
+    """
+    Mengubah data menjadi format yang aman disimpan sebagai JSON.
+
+    Mendukung:
+    - SQLAlchemy Row
+    - Pydantic model
+    - list
+    - tuple
+    - dictionary
+    """
+
+    # SQLAlchemy Row
+    if hasattr(data, "_mapping"):
+        return dict(data._mapping)
+
+    # Pydantic v2
+    if hasattr(data, "model_dump"):
+        return data.model_dump()
+
+    # List atau tuple
+    if isinstance(data, (list, tuple)):
+        return [
+            normalize_for_cache(item)
+            for item in data
+        ]
+
+    # Dictionary
+    if isinstance(data, dict):
+        return {
+            key: normalize_for_cache(value)
+            for key, value in data.items()
+        }
+
+    return data
 
 
 def get_cache(key: str):
@@ -34,21 +72,12 @@ def set_cache(key: str, data, ttl: int = 15):
     """
 
     try:
-        # Pydantic v2
-        if hasattr(data, "model_dump"):
-            data = data.model_dump()
-
-        # List Pydantic objects
-        elif isinstance(data, list):
-            data = [
-                item.model_dump() if hasattr(item, "model_dump") else item
-                for item in data
-            ]
-
+        normalized_data = normalize_for_cache(data)
+        json_data = jsonable_encoder(normalized_data)
         redis_client.setex(
             key,
             ttl,
-            json.dumps(data, default=str),
+            json.dumps(json_data),
         )
 
     except Exception as e:
