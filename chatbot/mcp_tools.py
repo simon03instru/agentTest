@@ -11,6 +11,16 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from fastmcp import FastMCP
+from chatbot.cognee_client import (
+    add_text as cognee_add_text,
+    cognify as cognee_cognify,
+    delete_dataset as cognee_delete_dataset,
+    delete_dataset_data as cognee_delete_dataset_data,
+    list_dataset_data as cognee_list_dataset_data,
+    list_datasets as cognee_list_datasets,
+    resolve_dataset as cognee_resolve_dataset,
+    search as cognee_search,
+)
 
 
 mcp = FastMCP("ReportingTools")
@@ -132,6 +142,136 @@ def tool_get_realtime_status(tipe_station: str | None = None, status_realtime: s
     if status_realtime:
         params["status_realtime"] = status_realtime
     return json.dumps(_request_json("/status", params), ensure_ascii=False)
+
+
+@mcp.tool()
+def tool_rag_station_knowledge(
+    question: str,
+    search_type: str = "HYBRID_COMPLETION",
+) -> str:
+    """Ambil konteks pengetahuan (SOP/manual/FAQ/insiden) dari Cognee RAG."""
+    dataset = os.getenv("COGNEE_DATASET", "station_knowledge")
+    dataset_info = cognee_resolve_dataset(dataset)
+    result = cognee_search(
+        query=question,
+        dataset=dataset,
+        search_type=search_type,
+    )
+    return json.dumps(
+        {
+            "dataset": dataset_info,
+            "search_type": search_type,
+            "result": result,
+        },
+        ensure_ascii=False,
+    )
+
+
+@mcp.tool()
+def tool_knowledge_add(
+    text: str,
+    dataset: str | None = None,
+    run_cognify: bool = True,
+) -> str:
+    """Tambah knowledge text ke Cognee lalu optional cognify."""
+    target_dataset = dataset or os.getenv("COGNEE_DATASET", "station_knowledge")
+    add_result = cognee_add_text(text=text, dataset=target_dataset)
+    dataset_info = cognee_resolve_dataset(target_dataset)
+
+    payload = {
+        "dataset": dataset_info,
+        "add_result": add_result,
+    }
+
+    if run_cognify:
+        payload["cognify_result"] = cognee_cognify(dataset=target_dataset)
+
+    return json.dumps(payload, ensure_ascii=False)
+
+
+@mcp.tool()
+def tool_knowledge_retrieve(
+    query: str,
+    dataset: str | None = None,
+    search_type: str = "HYBRID_COMPLETION",
+) -> str:
+    """Retrieve knowledge dari Cognee dengan query semantic/hybrid."""
+    target_dataset = dataset or os.getenv("COGNEE_DATASET", "station_knowledge")
+    dataset_info = cognee_resolve_dataset(target_dataset)
+    result = cognee_search(
+        query=query,
+        dataset=target_dataset,
+        search_type=search_type,
+    )
+    return json.dumps(
+        {
+            "dataset": dataset_info,
+            "query": query,
+            "search_type": search_type,
+            "result": result,
+        },
+        ensure_ascii=False,
+    )
+
+
+@mcp.tool()
+def tool_knowledge_list_datasets() -> str:
+    """List seluruh dataset knowledge yang tersedia di Cognee."""
+    return json.dumps(cognee_list_datasets(), ensure_ascii=False)
+
+
+@mcp.tool()
+def tool_knowledge_list_data(dataset: str | None = None) -> str:
+    """List seluruh item knowledge (data IDs) pada dataset."""
+    target_dataset = dataset or os.getenv("COGNEE_DATASET", "station_knowledge")
+    dataset_info = cognee_resolve_dataset(target_dataset)
+    result = cognee_list_dataset_data(target_dataset)
+    return json.dumps(
+        {
+            "dataset": dataset_info,
+            "items": result,
+        },
+        ensure_ascii=False,
+    )
+
+
+@mcp.tool()
+def tool_knowledge_delete_item(
+    data_id: str,
+    dataset: str | None = None,
+    run_cognify: bool = True,
+) -> str:
+    """Hapus satu item knowledge berdasarkan data_id dari dataset."""
+    target_dataset = dataset or os.getenv("COGNEE_DATASET", "station_knowledge")
+    dataset_info = cognee_resolve_dataset(target_dataset)
+    delete_result = cognee_delete_dataset_data(target_dataset, data_id)
+
+    payload = {
+        "dataset": dataset_info,
+        "data_id": data_id,
+        "delete_result": delete_result,
+    }
+
+    if run_cognify:
+        payload["cognify_result"] = cognee_cognify(dataset=target_dataset)
+
+    return json.dumps(payload, ensure_ascii=False)
+
+
+@mcp.tool()
+def tool_knowledge_delete_dataset(
+    dataset: str,
+) -> str:
+    """Hapus satu dataset knowledge dari Cognee."""
+    dataset_info = cognee_resolve_dataset(dataset)
+    result = cognee_delete_dataset(dataset)
+    return json.dumps(
+        {
+            "dataset": dataset_info,
+            "delete_result": result,
+        },
+        ensure_ascii=False,
+    )
 
 
 if __name__ == "__main__":

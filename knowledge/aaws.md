@@ -1,0 +1,1 @@
+AAWS adalah alat untuk mengamati cuaca pertanian dan perkebunan
