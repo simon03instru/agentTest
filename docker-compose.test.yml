@@ -1,13 +1,33 @@
 services:
+  cognee:
+    image: cognee/cognee:main
+    container_name: cognee
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ENABLE_BACKEND_ACCESS_CONTROL: "false"
+    volumes:
+      - cognee_data:/app/.cognee
+
   backend:
     build:
       context: .
       dockerfile: Dockerfile.backend
+    depends_on:
+      - cognee
     env_file:
-      - .env.test
+      - .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8081}
+      COGNEE_BASE_URL: ${COGNEE_BASE_URL:-http://cognee:8000}
     restart: unless-stopped
+    ports:
+      - "8009:8009"
     expose:
       - "8009"
 
@@ -21,3 +41,6 @@ services:
     restart: unless-stopped
     ports:
       - "8081:80"
+
+volumes:
+  cognee_data:

@@ -1,16 +1,19 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from db.db_connect import get_db
 from models.users import User
 from schemas.auth_schemas import UserResponse, UpdateRoleRequest, UpdateActiveRequest
 from auth.dependencies import require_roles
+from core.limit import limiter
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
 
 @router.get("/", response_model=list[UserResponse])
+@limiter.limit("30/minute")
 def get_users(
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(["admin", "superadmin"])),
 ):
@@ -18,7 +21,9 @@ def get_users(
 
 
 @router.patch("/{user_id}/role")
+@limiter.limit("10/minute")
 def update_user_role(
+    request: Request,
     user_id: int,
     payload: UpdateRoleRequest,
     db: Session = Depends(get_db),

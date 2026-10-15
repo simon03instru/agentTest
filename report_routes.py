@@ -1,9 +1,10 @@
 import os
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status, Request
 from sqlalchemy.orm import Session
 
 from db.db_connect import get_db
+from core.limit import limiter
 from services.query_logic import (
     get_reporting_overview,
     get_reporting_status_breakdown,
@@ -38,7 +39,9 @@ def require_reporting_key(x_agent_token: str | None = Header(default=None, alias
 
 
 @router.get("/overview")
+@limiter.limit("30/minute")
 def reporting_overview(
+    request: Request,
     hours: int = 24,
     db: Session = Depends(get_db),
     _: bool = Depends(require_reporting_key),
@@ -47,7 +50,9 @@ def reporting_overview(
 
 
 @router.get("/status-breakdown")
+@limiter.limit("30/minute")
 def reporting_status_breakdown(
+    request: Request,
     db: Session = Depends(get_db),
     _: bool = Depends(require_reporting_key),
 ):
@@ -55,7 +60,9 @@ def reporting_status_breakdown(
 
 
 @router.get("/freshness")
+@limiter.limit("30/minute")
 def reporting_freshness(
+    request: Request,
     hours: int = 24,
     db: Session = Depends(get_db),
     _: bool = Depends(require_reporting_key),
@@ -64,7 +71,9 @@ def reporting_freshness(
 
 
 @router.get("/health-ranking")
+@limiter.limit("30/minute")
 def reporting_health_ranking(
+    request: Request,
     hours: int = 24,
     limit: int = 20,
     db: Session = Depends(get_db),
@@ -74,7 +83,9 @@ def reporting_health_ranking(
 
 
 @router.get("/daily-trend/{tipe_station}")
+@limiter.limit("30/minute")
 def reporting_daily_trend(
+    request: Request,
     tipe_station: str,
     days: int = 7,
     db: Session = Depends(get_db),
@@ -84,7 +95,9 @@ def reporting_daily_trend(
 
 
 @router.get("/worst-stale")
+@limiter.limit("30/minute")
 def reporting_worst_stale(
+    request: Request,
     hours: int = 24,
     limit: int = 20,
     db: Session = Depends(get_db),
@@ -94,7 +107,9 @@ def reporting_worst_stale(
 
 
 @router.get("/anomalies")
+@limiter.limit("30/minute")
 def reporting_anomalies(
+    request: Request,
     tipe_station: str | None = None,
     days: int = 7,
     limit: int = 50,
@@ -105,7 +120,9 @@ def reporting_anomalies(
 
 
 @router.get("/summary")
+@limiter.limit("30/minute")
 def reporting_summary(
+    request: Request,
     hours: int = 24,
     tipe_station: str | None = None,
     db: Session = Depends(get_db),
@@ -115,7 +132,9 @@ def reporting_summary(
 
 
 @router.get("/stations/{id_station}")
+@limiter.limit("30/minute")
 def reporting_station_detail(
+    request: Request,
     id_station: str,
     db: Session = Depends(get_db),
     _: bool = Depends(require_reporting_key),

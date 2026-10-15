@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from db.db_connect import get_db
@@ -18,12 +18,14 @@ from services.auth_services import (
 )
 from auth.dependencies import get_current_user
 from models.users import User
+from core.limit import limiter
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
 @router.post("/register")
-def register(payload: RegisterRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def register(request: Request, payload: RegisterRequest, db: Session = Depends(get_db)):
     user = register_user(db, payload)
 
     return {
@@ -34,7 +36,8 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)):
     token, user = login_user(db, payload)
 
     return TokenResponse(
@@ -51,7 +54,9 @@ def me(current_user: User = Depends(get_current_user)):
 
 
 @router.post("/forgot-password")
+@limiter.limit("5/minute")
 def forgot_password(
+    request: Request,
     payload: ForgotPasswordRequest,
     db: Session = Depends(get_db),
 ):
@@ -64,7 +69,9 @@ def forgot_password(
 
 
 @router.post("/reset-password")
+@limiter.limit("5/minute")
 def reset_password(
+    request: Request,
     payload: ResetPasswordRequest,
     db: Session = Depends(get_db),
 ):
