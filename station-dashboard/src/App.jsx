@@ -19,6 +19,7 @@ import Layout from '@/components/layout/Layout'
 import HomePage          from '@/pages/HomePage'
 import StationDetailPage from '@/pages/StationDetailPage'
 import NotFoundPage      from '@/pages/NotFoundPage'
+import StationFilterPage from '@/pages/StationFilterPage'   // ← TAMBAHAN
 
 // ── TAMBAHAN: Auth guard ───────────────────────────────────────────────────
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
@@ -50,6 +51,7 @@ export default function App() {
         <Route path="/" element={<Layout />}>
           <Route index element={<HomePage />} />
           <Route path="station/:id" element={<StationDetailPage />} />
+          <Route path="filter" element={<StationFilterPage />} />{/* ← TAMBAHAN */}
         </Route>
       </Route>
 

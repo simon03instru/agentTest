@@ -10,6 +10,7 @@ from report_routes import router as reporting_router
 import os
 from core.cache import get_cache, set_cache
 from core.limit import limiter
+from report_station import router as station_router
 
 from schemas.schemas import (
     RealtimeMapResponse,
@@ -53,6 +54,7 @@ app.include_router(ai_router)
 app.include_router(auth_routes.router)
 app.include_router(user_routes.router)
 app.include_router(reporting_router)
+app.include_router(station_router)
 
 
 @app.get("/")

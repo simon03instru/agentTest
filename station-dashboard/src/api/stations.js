@@ -49,3 +49,37 @@ export const fetchExportData = (id_station, tanggal) =>
   apiClient.get(`/station/export/${id_station}`, {
     params: { tanggal },
   })
+
+// ─── TAMBAHAN: filter bertingkat + export Excel ───────────────────────────
+
+/** Buang nilai kosong ('' / null / undefined) supaya tidak dikirim sebagai ?balai= */
+function cleanParams(params = {}) {
+  return Object.fromEntries(
+    Object.entries(params).filter(([, v]) => v !== '' && v != null)
+  )
+}
+
+/**
+ * GET /station/filter-options?balai=&provinsi=&upt=
+ * → { balai: [], provinsi: [], upt: [], kota: [], sites: [], total_sites }
+ */
+export const fetchFilterOptions = (params) =>
+  apiClient.get('/station/filter-options', { params: cleanParams(params) })
+
+/**
+ * GET /station/filter?balai=&provinsi=&upt=&kota=&tipe_station=
+ * → array stasiun. Backend balas 404 kalau tidak ada hasil.
+ */
+export const fetchFilteredStations = (params) =>
+  apiClient.get('/station/filter', { params: cleanParams(params) })
+
+/**
+ * GET /station/export/excel?tanggal=YYYY-MM-DD&balai=&provinsi=&upt=&kota=
+ * → Blob (.xlsx). Timeout dibuat panjang karena file dibuat saat request.
+ */
+export const exportStationsExcel = (params) =>
+  apiClient.get('/station/export/excel', {
+    params: cleanParams(params),
+    responseType: 'blob',
+    timeout: 120_000,
+  })

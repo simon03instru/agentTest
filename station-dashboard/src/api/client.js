@@ -37,7 +37,7 @@ apiClient.interceptors.request.use(
 // ── Response interceptor ───────────────────────────────────────────────────
 apiClient.interceptors.response.use(
   (response) => response.data,
-  (error) => {
+  async (error) => {
     // ← TAMBAHAN: token expired / tidak valid → logout otomatis
     if (error.response?.status === 401) {
       localStorage.removeItem(TOKEN_KEY)
@@ -51,7 +51,18 @@ apiClient.interceptors.response.use(
       }
     }
 
-    const raw = error.response?.data?.detail ?? error.response?.data?.message
+    // ← TAMBAHAN: untuk request responseType:'blob' (export Excel), body error
+    // juga berupa Blob → baca dulu sebagai JSON supaya pesan backend terbaca.
+    let body = error.response?.data
+    if (typeof Blob !== 'undefined' && body instanceof Blob) {
+      try {
+        body = JSON.parse(await body.text())
+      } catch {
+        body = undefined
+      }
+    }
+
+    const raw = body?.detail ?? body?.message
 
     let message
     if (raw == null) {
@@ -75,7 +86,10 @@ apiClient.interceptors.response.use(
     }
 
     console.error('[API Error]', error.config?.url, error.response?.status, message)
-    return Promise.reject(new Error(message))
+    // ← TAMBAHAN: sertakan HTTP status supaya caller bisa bedakan 404 (data kosong)
+    const err = new Error(message)
+    err.status = error.response?.status
+    throw err
   }
 )
 

@@ -6,6 +6,9 @@ from models.aws_table import ObservationAWS
 from models.arg_table import ObservationARG
 from models.aaws_table import ObservationAAWS
 from datetime import datetime, time, timedelta
+from typing import Optional
+import io
+import pandas as pd
 
 
 def get_realtime_map_status(
@@ -1163,3 +1166,206 @@ def get_reporting_summary(db: Session, hours: int = 24, tipe_station: str | None
             "Use anomalies to detect suspicious values for manual review.",
         ],
     }
+
+
+def get_filtered_stations(
+    db: Session,
+    balai: Optional[str] = None,
+    provinsi: Optional[str] = None,
+    upt: Optional[str] = None,
+    kota: Optional[str] = None,
+    tipe_station: Optional[str] = None,
+):
+    query = (
+        db.query(
+            Station.id_station,
+            Station.tipe_station,
+            Station.name_station,
+            Station.nama_kota,
+            Station.provinsi,
+            Station.upt_penanggung_jawab,
+            Station.balai,
+            Station.latitude,
+            Station.longitude,
+            Station.elevasi,
+            StationLatest.status_realtime,
+            StationLatest.last_observed_at,
+        )
+        .outerjoin(StationLatest, Station.id_station == StationLatest.id_station)
+    )
+
+    if balai:
+        query = query.filter(Station.balai == balai)
+    if provinsi:
+        query = query.filter(Station.provinsi == provinsi)
+    if upt:
+        query = query.filter(Station.upt_penanggung_jawab == upt)
+    if kota:
+        query = query.filter(Station.nama_kota == kota)
+    if tipe_station:
+        query = query.filter(Station.tipe_station == tipe_station.lower())
+
+    return query.order_by(Station.balai, Station.provinsi, Station.upt_penanggung_jawab, Station.name_station).all()
+
+
+def get_dropdown_options(
+    db: Session,
+    balai: Optional[str] = None,
+    provinsi: Optional[str] = None,
+    upt: Optional[str] = None,
+):
+    query = db.query(Station)
+
+    if balai:
+        query = query.filter(Station.balai == balai)
+    if provinsi:
+        query = query.filter(Station.provinsi == provinsi)
+    if upt:
+        query = query.filter(Station.upt_penanggung_jawab == upt)
+
+    balai_list = [b[0] for b in db.query(Station.balai).distinct().all() if b[0]]
+    provinsi_list = [p[0] for p in query.with_entities(Station.provinsi).distinct().all() if p[0]]
+    upt_list = [u[0] for u in query.with_entities(Station.upt_penanggung_jawab).distinct().all() if u[0]]
+    kota_list = [k[0] for k in query.with_entities(Station.nama_kota).distinct().all() if k[0]]
+
+    return {
+        "balai": balai_list,
+        "provinsi": provinsi_list,
+        "upt": upt_list,
+        "kota": kota_list,
+    }
+
+
+def export_daily_data_excel(
+    db: Session,
+    tanggal,
+    balai: Optional[str] = None,
+    provinsi: Optional[str] = None,
+    upt: Optional[str] = None,
+    kota: Optional[str] = None,
+):
+    start_dt = datetime.combine(tanggal, time.min)
+    end_dt = start_dt + timedelta(days=1)
+
+    # 1. Ambil daftar stasiun yang sesuai filter hierarki
+    query_station = db.query(Station)
+    if balai:
+        query_station = query_station.filter(Station.balai == balai)
+    if provinsi:
+        query_station = query_station.filter(Station.provinsi == provinsi)
+    if upt:
+        query_station = query_station.filter(Station.upt_penanggung_jawab == upt)
+    if kota:
+        query_station = query_station.filter(Station.nama_kota == kota)
+
+    stations = query_station.all()
+    if not stations:
+        return None
+
+    station_map = {s.id_station: s for s in stations}
+    arg_ids = [s.id_station for s in stations if str(s.tipe_station).lower() == "arg"]
+    aws_ids = [s.id_station for s in stations if str(s.tipe_station).lower() == "aws"]
+    aaws_ids = [s.id_station for s in stations if str(s.tipe_station).lower() == "aaws"]
+
+    data_arg, data_aws, data_aaws = [], [], []
+
+    # 2. Query batch per tipe alat
+    if arg_ids:
+        rows_arg = (
+            db.query(ObservationARG)
+            .filter(
+                ObservationARG.id_station.in_(arg_ids),
+                ObservationARG.observed_at >= start_dt,
+                ObservationARG.observed_at < end_dt,
+            )
+            .order_by(ObservationARG.id_station, ObservationARG.observed_at)
+            .all()
+        )
+        for r in rows_arg:
+            st = station_map[r.id_station]
+            data_arg.append({
+                "Balai": st.balai,
+                "Provinsi": st.provinsi,
+                "UPT Penanggung Jawab": st.upt_penanggung_jawab,
+                "Kota": st.nama_kota,
+                "ID Station": r.id_station,
+                "Nama Stasiun": st.name_station,
+                "Waktu Observasi": r.observed_at.strftime("%Y-%m-%d %H:%M:%S") if r.observed_at else None,
+                "Curah Hujan (rr)": r.rr,
+            })
+
+    if aws_ids:
+        rows_aws = (
+            db.query(ObservationAWS)
+            .filter(
+                ObservationAWS.id_station.in_(aws_ids),
+                ObservationAWS.observed_at >= start_dt,
+                ObservationAWS.observed_at < end_dt,
+            )
+            .order_by(ObservationAWS.id_station, ObservationAWS.observed_at)
+            .all()
+        )
+        for r in rows_aws:
+            st = station_map[r.id_station]
+            data_aws.append({
+                "Balai": st.balai,
+                "Provinsi": st.provinsi,
+                "UPT Penanggung Jawab": st.upt_penanggung_jawab,
+                "Kota": st.nama_kota,
+                "ID Station": r.id_station,
+                "Nama Stasiun": st.name_station,
+                "Waktu Observasi": r.observed_at.strftime("%Y-%m-%d %H:%M:%S") if r.observed_at else None,
+                "Curah Hujan (rr)": r.rr,
+                "Tekanan Udara (pp_air)": getattr(r, "pp_air", None),
+                "Kelembaban (rh_avg)": getattr(r, "rh_avg", None),
+                "Suhu Udara (tt_air_avg)": getattr(r, "tt_air_avg", None),
+                "Radiasi Matahari (sr_avg)": getattr(r, "sr_avg", None),
+                "Arah Angin (wd_avg)": getattr(r, "wd_avg", None),
+                "Kecepatan Angin (ws_avg)": getattr(r, "ws_avg", None),
+            })
+
+    if aaws_ids:
+        rows_aaws = (
+            db.query(ObservationAAWS)
+            .filter(
+                ObservationAAWS.id_station.in_(aaws_ids),
+                ObservationAAWS.observed_at >= start_dt,
+                ObservationAAWS.observed_at < end_dt,
+            )
+            .order_by(ObservationAAWS.id_station, ObservationAAWS.observed_at)
+            .all()
+        )
+        for r in rows_aaws:
+            st = station_map[r.id_station]
+            data_aaws.append({
+                "Balai": st.balai,
+                "Provinsi": st.provinsi,
+                "UPT Penanggung Jawab": st.upt_penanggung_jawab,
+                "Kota": st.nama_kota,
+                "ID Station": r.id_station,
+                "Nama Stasiun": st.name_station,
+                "Waktu Observasi": r.observed_at.strftime("%Y-%m-%d %H:%M:%S") if r.observed_at else None,
+                "Curah Hujan (rr)": r.rr,
+                "Tekanan Udara (pp_air)": getattr(r, "pp_air", None),
+                "Kelembaban (rh_avg)": getattr(r, "rh_avg", None),
+                "Suhu Udara (tt_air_avg)": getattr(r, "tt_air_avg", None),
+                "WS 50cm": getattr(r, "ws_50cm", None),
+                "WS 2m": getattr(r, "ws_2m", None),
+            })
+
+    # 3. Bentuk file Excel multi-sheet
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        if data_aws:
+            pd.DataFrame(data_aws).to_excel(writer, sheet_name="Data AWS", index=False)
+        if data_arg:
+            pd.DataFrame(data_arg).to_excel(writer, sheet_name="Data ARG", index=False)
+        if data_aaws:
+            pd.DataFrame(data_aaws).to_excel(writer, sheet_name="Data AAWS", index=False)
+        if not (data_aws or data_arg or data_aaws):
+            pd.DataFrame({"Keterangan": ["Tidak ada data observasi yang masuk pada tanggal ini."]}).to_excel(
+                writer, sheet_name="Data Kosong", index=False
+            )
+
+    output.seek(0)
+    return output

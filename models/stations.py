@@ -27,7 +27,11 @@ class Station(Base):
     longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     elevasi: Mapped[float | None] = mapped_column(Float, nullable=True)
 
+    upt_penanggung_jawab: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    balai: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    provinsi: Mapped[str | None] = mapped_column(String(100), nullable=True)
     nama_kota: Mapped[str | None] = mapped_column(String(150), nullable=True)
+
 
     is_active: Mapped[bool] = mapped_column(
         Boolean,
